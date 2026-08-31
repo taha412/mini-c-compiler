@@ -5,43 +5,21 @@
 #include <ctype.h>
 #include <string.h>
 
-typedef struct Lexer {
-    const char *source;
-    size_t pos;
-} Lexer;
+#include "lexer.h"
 
-typedef enum TokenType {
-    OBRACE,
-    CBRACE,
-    OPAREN,
-    CPAREN,
-    SEMI,
-    INDENTIFIER,
-    INT_LIT,
-    END_OF_FILE,
-    KEYW_INT,
-    KEYW_RETURN
-} TokenType;
-
-typedef struct Token {
-    TokenType type;
-    int64_t int_val; // Using 64-bit system
-    char text[64];
-} Token;
-
-//For printing
+// For printing
 const char* token_type_to_string(TokenType type) {
     switch (type) {
-        case OBRACE:        return "OBRACE";
-        case CBRACE:        return "CBRACE";
-        case OPAREN:        return "OPAREN";
-        case CPAREN:        return "CPAREN";
-        case SEMI:          return "SEMI";
-        case INDENTIFIER:   return "INDENTIFIER";
-        case INT_LIT:       return "INT_LIT";
-        case END_OF_FILE:   return "END_OF_FILE";
-        case KEYW_INT:      return "KEYW_INT";
-        case KEYW_RETURN:   return "KEYW_RETURN";
+        case TOK_OBRACE:        return "OBRACE";
+        case TOK_CBRACE:        return "CBRACE";
+        case TOK_OPAREN:        return "OPAREN";
+        case TOK_CPAREN:        return "CPAREN";
+        case TOK_SEMI:          return "SEMI";
+        case TOK_IDENTIFIER:    return "IDENTIFIER";
+        case TOK_INT_LIT:       return "INT_LIT";
+        case TOK_END_OF_FILE:   return "END_OF_FILE";
+        case TOK_KEYW_INT:      return "KEYW_INT";
+        case TOK_KEYW_RETURN:   return "KEYW_RETURN";
         default:            return "UNKNOWN";
     }
 }
@@ -50,11 +28,11 @@ const char* token_type_to_string(TokenType type) {
 void print_token(Token t) {
     printf("Token: %-15s", token_type_to_string(t.type));
 
-    if (t.type == INDENTIFIER || t.type == KEYW_INT || t.type == KEYW_RETURN) {
+    if (t.type == TOK_IDENTIFIER || t.type == TOK_KEYW_INT || t.type == TOK_KEYW_RETURN) {
         printf(" | name: %s\n", t.text);
     } 
 
-    else if (t.type == INT_LIT) {
+    else if (t.type == TOK_INT_LIT) {
         printf(" | value: %lld\n", (long long)t.int_val); 
     } 
 
@@ -75,7 +53,7 @@ char* read_file(const char* filepath) {
         exit(1);
     }
 
-    //Determine size of file
+    // determine size of file
     fseek(file_ptr, 0, SEEK_END);
     long file_size = ftell(file_ptr);
     rewind(file_ptr);
@@ -88,7 +66,7 @@ char* read_file(const char* filepath) {
         exit(1);
     }
     
-    //place file contents into buffer
+    // place file contents into buffer
     size_t bytes_read = fread(buffer, 1, file_size, file_ptr);
     buffer[bytes_read] = '\0';
 
@@ -105,33 +83,33 @@ Token next_token(Lexer *lexer) {
     Token t = {0};
 
     if (lexer->source[lexer->pos] == '\0')
-        t.type = END_OF_FILE;
+        t.type = TOK_END_OF_FILE;
 
     else if (lexer->source[lexer->pos] == '{') {
         lexer->pos++;
-        t.type = OBRACE;
+        t.type = TOK_OBRACE;
     }
     else if (lexer->source[lexer->pos] == '}') {
         lexer->pos++;
-        t.type = CBRACE;
+        t.type = TOK_CBRACE;
     }
     else if (lexer->source[lexer->pos] == '(') {
         lexer->pos++;
-        t.type = OPAREN;
+        t.type = TOK_OPAREN;
     }
     else if (lexer->source[lexer->pos] == ')') {
         lexer->pos++;
-        t.type = CPAREN;
+        t.type = TOK_CPAREN;
     }
     else if (lexer->source[lexer->pos] == ';') {
         lexer->pos++;
-        t.type = SEMI;
+        t.type = TOK_SEMI;
     }
     // look for words
     else if (isalpha((unsigned char) lexer->source[lexer->pos]) || lexer->source[lexer->pos] == '_') {
         int text_pos = 0;
 
-        //get word into t.text
+        // get word into t.text
         while ((isalnum(lexer->source[lexer->pos]) || lexer->source[lexer->pos] == '_') && text_pos < 63) {
             t.text[text_pos] = lexer->source[lexer->pos];
             text_pos++;
@@ -140,24 +118,24 @@ Token next_token(Lexer *lexer) {
         t.text[text_pos] = '\0';
 
         if (strcmp(t.text, "int") == 0) {
-            t.type = KEYW_INT;
+            t.type = TOK_KEYW_INT;
         }
         else if (strcmp(t.text, "return") == 0) {
-            t.type = KEYW_RETURN;
+            t.type = TOK_KEYW_RETURN;
         } else {
-            t.type = INDENTIFIER;
+            t.type = TOK_IDENTIFIER;
         }
     }
     // look for numbers
     else if (isdigit((unsigned char) lexer->source[lexer->pos])) {
-        //get num into int_val
+        // get num into int_val
         t.int_val = 0;
         while (isdigit((unsigned char) lexer->source[lexer->pos])) {
             t.int_val *= 10;
             t.int_val += lexer->source[lexer->pos] - '0';
             lexer->pos++;
         }
-        t.type = INT_LIT;
+        t.type = TOK_INT_LIT;
 
     }
     else {

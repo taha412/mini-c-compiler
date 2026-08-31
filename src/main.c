@@ -1,4 +1,8 @@
-#include "lexer.c"
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "lexer.h"
+#include "parser.h"
 
 int main(int argc, char** args) {
     if (argc < 2) {
@@ -10,12 +14,16 @@ int main(int argc, char** args) {
 
     Lexer lexer = {.source = code, .pos = 0};
 
-    Token t;
+    Parser parser = {.lexer = &lexer};
 
-    while (t.type != END_OF_FILE) {
-        t = next_token(&lexer);
-        print_token(t);
-    }
+    advance(&parser);
+
+    Program *ast = parse_program(&parser);
+
+    printf("--- AST ---\n");
+    print_program(ast, 0);
+    printf("-----------\n");
+
 
     free(code);
 
