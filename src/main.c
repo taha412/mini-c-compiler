@@ -3,6 +3,7 @@
 
 #include "lexer.h"
 #include "parser.h"
+#include "codegen.h"
 
 int main(int argc, char** args) {
     if (argc < 2) {
@@ -24,8 +25,20 @@ int main(int argc, char** args) {
     print_program(ast, 0);
     printf("-----------\n");
 
+    FILE *out = fopen("output.s", "w");
+    if (!out) {
+        perror("Error: Failed to open output.s\n");
+        free(code);
+        return 1;
+    }
+
+    generate_code(ast, out);
+
+    fclose(out);
 
     free(code);
+
+    printf("Successfully generated assemply: output.s!\n");
 
     return 0;
 }

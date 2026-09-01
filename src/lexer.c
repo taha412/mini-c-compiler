@@ -20,7 +20,7 @@ const char* token_type_to_string(TokenType type) {
         case TOK_END_OF_FILE:   return "END_OF_FILE";
         case TOK_KEYW_INT:      return "KEYW_INT";
         case TOK_KEYW_RETURN:   return "KEYW_RETURN";
-        default:            return "UNKNOWN";
+        default:                return "UNKNOWN";
     }
 }
 

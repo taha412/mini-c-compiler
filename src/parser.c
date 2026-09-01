@@ -8,7 +8,7 @@
 
 void advance(Parser *parser) {
     parser->curr_token = next_token(parser->lexer);
-    // print_token(parser->curr_token);
+    print_token(parser->curr_token);
 }
 
 void expect(Parser *parser, TokenType expected_type) {
