@@ -26,7 +26,15 @@ typedef enum TokenType {
     TOK_ADD,
     TOK_MULTIPLY,
     TOK_DIVIDE,
-    TOK_MOD
+    TOK_MOD,
+    TOK_AND,
+    TOK_OR,
+    TOK_EQ,
+    TOK_NEQ,
+    TOK_LT,
+    TOK_LTE,
+    TOK_GT,
+    TOK_GTE
 } TokenType;
 
 typedef struct Token {

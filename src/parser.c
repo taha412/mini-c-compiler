@@ -7,6 +7,8 @@
 #include "lexer.h"
 #include "parser.h"
 
+static Expression *parse_expression(Parser *parser);
+
 void advance(Parser *parser) {
     parser->curr_token = next_token(parser->lexer);
     print_token(parser->curr_token);
@@ -36,65 +38,19 @@ static BINARY_OP token_to_bin(TokenType token_type) {
         case TOK_MULTIPLY:      return BIN_MULTIPLY;
         case TOK_DIVIDE:        return BIN_DIVIDE;
         case TOK_MOD:           return BIN_MOD;
+        case TOK_AND:           return BIN_AND;
+        case TOK_OR:            return BIN_OR;
+        case TOK_EQ:            return BIN_EQ;
+        case TOK_NEQ:           return BIN_NEQ;
+        case TOK_LT:            return BIN_LT;
+        case TOK_LTE:           return BIN_LTE;
+        case TOK_GT:            return BIN_GT;
+        case TOK_GTE:           return BIN_GTE;
         default:                return BIN_FAILURE;
     }
 }
 
-Program *parse_program(Parser *parser) {
-    Program *prog = (Program *) malloc(sizeof(Program));
-
-    prog->fnctn = parse_function(parser);
-    
-    expect(parser, TOK_END_OF_FILE);
-
-    return prog;
-}
-
-Function *parse_function(Parser *parser) {
-    Function *func = (Function *) malloc(sizeof(Function));
-
-    expect(parser, TOK_KEYW_INT);
-    if (parser->curr_token.type == TOK_IDENTIFIER) {
-        strncpy(func->name, parser->curr_token.text, 63);
-        func->name[63] = '\0'; // safety
-        advance(parser);
-
-        expect(parser, TOK_OPAREN);
-        expect(parser, TOK_CPAREN);
-
-        expect(parser, TOK_OBRACE);
-
-        func->stmt = parse_statement(parser);
-
-        expect(parser, TOK_CBRACE);
-
-        return func;
-    }
-
-    else {
-        printf("Error: Unexpected identifier.\n");
-        exit(1);
-    }
-}
-
-Statement *parse_statement(Parser *parser) {
-    Statement *s = (Statement *) malloc(sizeof(Statement));
-
-    if (parser->curr_token.type == TOK_KEYW_RETURN) {
-        s->type = STMT_RETURN;
-        advance(parser);
-        s->expr = parse_expression(parser);
-        expect(parser, TOK_SEMI);
-        return s;
-    }
-    
-    else {
-        printf("Error: Invalid statement.\n");
-        exit(1);
-    }
-}
-
-Expression *parse_factor(Parser *parser) {
+static Expression *parse_factor(Parser *parser) {
     UNARY_OP op = token_to_op(parser->curr_token.type);
 
     if (parser->curr_token.type == TOK_OPAREN) {
@@ -128,7 +84,7 @@ Expression *parse_factor(Parser *parser) {
     }
 }
 
-Expression *parse_term(Parser *parser) {
+static Expression *parse_term(Parser *parser) {
     Expression *curr_expr = parse_factor(parser);
 
     while (parser->curr_token.type == TOK_MULTIPLY || parser->curr_token.type == TOK_DIVIDE || parser->curr_token.type == TOK_MOD) {
@@ -148,7 +104,7 @@ Expression *parse_term(Parser *parser) {
     return curr_expr;
 }
 
-Expression *parse_expression(Parser *parser) {
+static Expression *parse_additive_expression(Parser *parser) {
     Expression *curr_expr = parse_term(parser);
 
     while (parser->curr_token.type == TOK_ADD || parser->curr_token.type == TOK_NEG) {
@@ -166,6 +122,140 @@ Expression *parse_expression(Parser *parser) {
     }
 
     return curr_expr;
+}
+
+static Expression *parse_relational_expression(Parser *parser) {
+    Expression *curr_expr = parse_additive_expression(parser);
+
+    while (parser->curr_token.type == TOK_LT || parser->curr_token.type == TOK_GT || parser->curr_token.type == TOK_LTE || parser->curr_token.type == TOK_GTE) {
+        BINARY_OP op = token_to_bin(parser->curr_token.type);
+        advance(parser);
+        Expression *next_term = parse_additive_expression(parser);
+
+        Expression *new_expr = (Expression *) malloc(sizeof(Expression));
+        new_expr->type = EXPR_BINOP;
+        new_expr->lterm = curr_expr;
+        new_expr->bin_op = op;
+        new_expr->rterm = next_term;
+
+        curr_expr = new_expr;
+    }
+
+    return curr_expr;
+}
+
+static Expression *parse_equality_expression(Parser *parser) {
+    Expression *curr_expr = parse_relational_expression(parser);
+
+    while (parser->curr_token.type == TOK_EQ || parser->curr_token.type == TOK_NEQ) {
+        BINARY_OP op = token_to_bin(parser->curr_token.type);
+        advance(parser);
+        Expression *next_term = parse_relational_expression(parser);
+
+        Expression *new_expr = (Expression *) malloc(sizeof(Expression));
+        new_expr->type = EXPR_BINOP;
+        new_expr->lterm = curr_expr;
+        new_expr->bin_op = op;
+        new_expr->rterm = next_term;
+
+        curr_expr = new_expr;
+    }
+
+    return curr_expr;
+}
+
+static Expression *parse_log_and_expression(Parser *parser) {
+    Expression *curr_expr = parse_equality_expression(parser);
+
+    while (parser->curr_token.type == TOK_AND) {
+        BINARY_OP op = token_to_bin(parser->curr_token.type);
+        advance(parser);
+        Expression *next_term = parse_equality_expression(parser);
+
+        Expression *new_expr = (Expression *) malloc(sizeof(Expression));
+        new_expr->type = EXPR_BINOP;
+        new_expr->lterm = curr_expr;
+        new_expr->bin_op = op;
+        new_expr->rterm = next_term;
+
+        curr_expr = new_expr;
+    }
+
+    return curr_expr;
+}
+
+static Expression *parse_expression(Parser *parser) {
+    Expression *curr_expr = parse_log_and_expression(parser);
+
+    while (parser->curr_token.type == TOK_OR) {
+        BINARY_OP op = token_to_bin(parser->curr_token.type);
+        advance(parser);
+        Expression *next_term = parse_log_and_expression(parser);
+
+        Expression *new_expr = (Expression *) malloc(sizeof(Expression));
+        new_expr->type = EXPR_BINOP;
+        new_expr->lterm = curr_expr;
+        new_expr->bin_op = op;
+        new_expr->rterm = next_term;
+
+        curr_expr = new_expr;
+    }
+
+    return curr_expr;
+}
+
+static Statement *parse_statement(Parser *parser) {
+    Statement *s = (Statement *) malloc(sizeof(Statement));
+
+    if (parser->curr_token.type == TOK_KEYW_RETURN) {
+        s->type = STMT_RETURN;
+        advance(parser);
+        s->expr = parse_expression(parser);
+        expect(parser, TOK_SEMI);
+        return s;
+    }
+    
+    else {
+        printf("Error: Invalid statement.\n");
+        exit(1);
+    }
+}
+
+static Function *parse_function(Parser *parser) {
+    Function *func = (Function *) malloc(sizeof(Function));
+
+    expect(parser, TOK_KEYW_INT);
+    if (parser->curr_token.type == TOK_IDENTIFIER) {
+        strncpy(func->name, parser->curr_token.text, 63);
+        func->name[63] = '\0'; // safety
+        advance(parser);
+
+        expect(parser, TOK_OPAREN);
+        expect(parser, TOK_CPAREN);
+
+        expect(parser, TOK_OBRACE);
+
+        func->stmt = parse_statement(parser);
+
+        expect(parser, TOK_CBRACE);
+
+        return func;
+    }
+
+    else {
+        printf("Error: Unexpected identifier.\n");
+        exit(1);
+    }
+}
+
+Program *parse_program(Parser *parser) {
+    Program *prog = (Program *) malloc(sizeof(Program));
+
+    prog->fnctn = parse_function(parser);
+    
+    expect(parser, TOK_END_OF_FILE);
+
+    return prog;
 }
 
 

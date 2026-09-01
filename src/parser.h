@@ -28,6 +28,14 @@ typedef enum BINARY_OP {
     BIN_MULTIPLY,
     BIN_DIVIDE,
     BIN_MOD,
+    BIN_AND,
+    BIN_OR,
+    BIN_EQ,
+    BIN_NEQ,
+    BIN_LT,
+    BIN_LTE,
+    BIN_GT,
+    BIN_GTE,
     BIN_FAILURE // exists to indicate token has no corresponding binary operator in token_to_bin
 } BINARY_OP;
 
@@ -59,12 +67,7 @@ typedef struct Program {
     Function *fnctn;
 } Program;
 
-Program     *parse_program(Parser *parser);
-Function    *parse_function(Parser *parser);
-Statement   *parse_statement(Parser *parser);
-Expression  *parse_factor(Parser *parser);
-Expression  *parse_term(Parser *parser);
-Expression  *parse_expression(Parser *parser);
+Program *parse_program(Parser *parser);
 
 void advance(Parser *parser);
 void expect(Parser *parser, TokenType expected_type);

@@ -27,6 +27,14 @@ const char* token_type_to_string(TokenType type) {
         case TOK_MULTIPLY:      return "MULTIPLY";
         case TOK_DIVIDE:        return "DIVIDE";
         case TOK_MOD:           return "MOD";
+        case TOK_AND:           return "AND";
+        case TOK_OR:            return "OR";
+        case TOK_EQ:            return "EQ";
+        case TOK_NEQ:           return "NEQ";
+        case TOK_LT:            return "LT";
+        case TOK_LTE:           return "LTE";
+        case TOK_GT:            return "GT";
+        case TOK_GTE:           return "GTE";
         default:                return "UNKNOWN";
     }
 }
@@ -120,7 +128,7 @@ Token next_token(Lexer *lexer) {
         lexer->pos++;
         t.type = TOK_UNARY_COMPL;
     }
-    else if (lexer->source[lexer->pos] == '!') {
+    else if (lexer->source[lexer->pos] == '!' && lexer->source[lexer->pos + 1] != '=') {
         lexer->pos++;
         t.type = TOK_UNARY_NOT;
     }
@@ -140,6 +148,14 @@ Token next_token(Lexer *lexer) {
         lexer->pos++;
         t.type = TOK_MOD;
     }
+    else if (lexer->source[lexer->pos] == '<' && lexer->source[lexer->pos + 1] != '=') {
+        lexer->pos++;
+        t.type = TOK_LT;
+    }
+    else if (lexer->source[lexer->pos] == '>' && lexer->source[lexer->pos + 1] != '=') {
+        lexer->pos++;
+        t.type = TOK_GT;
+    }
     // look for words
     else if (isalpha((unsigned char) lexer->source[lexer->pos]) || lexer->source[lexer->pos] == '_') {
         int text_pos = 0;
@@ -157,8 +173,44 @@ Token next_token(Lexer *lexer) {
         }
         else if (strcmp(t.text, "return") == 0) {
             t.type = TOK_KEYW_RETURN;
-        } else {
+        }
+        else {
             t.type = TOK_IDENTIFIER;
+        }
+    }
+    // look for binary operators
+    else if (lexer->source[lexer->pos] == '&' || lexer->source[lexer->pos] == '|' || lexer->source[lexer->pos] == '=' || lexer->source[lexer->pos] == '!' || lexer->source[lexer->pos] == '<' || lexer->source[lexer->pos] == '>') {
+        int text_pos = 0;
+
+        // get word into t.text
+        while ((lexer->source[lexer->pos] == '&' || lexer->source[lexer->pos] == '|' || lexer->source[lexer->pos] == '=' || lexer->source[lexer->pos] == '!' || lexer->source[lexer->pos] == '<' || lexer->source[lexer->pos] == '>') && text_pos < 63) {
+            t.text[text_pos] = lexer->source[lexer->pos];
+            text_pos++;
+            lexer->pos++;
+        }
+        t.text[text_pos] = '\0';
+
+        if (strcmp(t.text, "&&") == 0) {
+            t.type = TOK_AND;
+        }
+        else if (strcmp(t.text, "||") == 0) {
+            t.type = TOK_OR;
+        }
+        else if (strcmp(t.text, "==") == 0) {
+            t.type = TOK_EQ;
+        }
+        else if (strcmp(t.text, "!=") == 0) {
+            t.type = TOK_NEQ;
+        }
+        else if (strcmp(t.text, "<=") == 0) {
+            t.type = TOK_LTE;
+        }
+        else if (strcmp(t.text, ">=") == 0) {
+            t.type = TOK_GTE;
+        }
+        else {
+            printf("Error: Unrecognized character in binary operator '%c'\n", lexer->source[lexer->pos]);
+            exit(1);
         }
     }
     // look for numbers
