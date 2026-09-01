@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <stdint.h>
 
 typedef struct Lexer {
     const char *source;
@@ -21,9 +20,13 @@ typedef enum TokenType {
     TOK_END_OF_FILE,
     TOK_KEYW_INT,
     TOK_KEYW_RETURN,
-    TOK_UNARY_NEG,
+    TOK_NEG,
     TOK_UNARY_COMPL,
-    TOK_UNARY_NOT
+    TOK_UNARY_NOT,
+    TOK_ADD,
+    TOK_MULTIPLY,
+    TOK_DIVIDE,
+    TOK_MOD
 } TokenType;
 
 typedef struct Token {

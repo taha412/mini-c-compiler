@@ -10,8 +10,9 @@ typedef enum STMT_TYPE {
 } STMT_TYPE;
 
 typedef enum EXPR_TYPE {
-    EXPR_INT_LIT,
-    EXPR_UNARY
+    EXPR_BINOP,
+    EXPR_UNOP,
+    EXPR_CONST
 } EXPR_TYPE;
 
 typedef enum UNARY_OP {
@@ -21,6 +22,15 @@ typedef enum UNARY_OP {
     OP_FAILURE // exists to indicate token has no corresponding unary operator in token_to_op
 } UNARY_OP;
 
+typedef enum BINARY_OP {
+    BIN_NEG,
+    BIN_ADD,
+    BIN_MULTIPLY,
+    BIN_DIVIDE,
+    BIN_MOD,
+    BIN_FAILURE // exists to indicate token has no corresponding binary operator in token_to_bin
+} BINARY_OP;
+
 typedef struct Parser {
     Lexer *lexer;
     Token curr_token;
@@ -28,9 +38,11 @@ typedef struct Parser {
 
 typedef struct Expression {
     EXPR_TYPE type;
-    int64_t val;
-    UNARY_OP op;
-    Expression *operand;
+    Expression *lterm;
+    Expression *rterm;
+    BINARY_OP bin_op;
+    UNARY_OP un_op;
+    int64_t int_val;
 } Expression;
 
 typedef struct Statement {
@@ -50,15 +62,12 @@ typedef struct Program {
 Program     *parse_program(Parser *parser);
 Function    *parse_function(Parser *parser);
 Statement   *parse_statement(Parser *parser);
+Expression  *parse_factor(Parser *parser);
+Expression  *parse_term(Parser *parser);
 Expression  *parse_expression(Parser *parser);
 
 void advance(Parser *parser);
 void expect(Parser *parser, TokenType expected_type);
-
-Program     *parse_program(Parser *parser);
-Function    *parse_function(Parser *parser);
-Statement   *parse_statement(Parser *parser);
-Expression  *parse_expression(Parser *parser);
 
 void print_expression(Expression *expr, int level);
 void print_statement(Statement *stmt, int level);

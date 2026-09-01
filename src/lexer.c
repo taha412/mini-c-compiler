@@ -20,9 +20,13 @@ const char* token_type_to_string(TokenType type) {
         case TOK_END_OF_FILE:   return "END_OF_FILE";
         case TOK_KEYW_INT:      return "KEYW_INT";
         case TOK_KEYW_RETURN:   return "KEYW_RETURN";
-        case TOK_UNARY_NEG:     return "NEG";
+        case TOK_NEG:           return "NEG";
         case TOK_UNARY_COMPL:   return "COMPL";
         case TOK_UNARY_NOT:     return "NOT";
+        case TOK_ADD:           return "ADD";
+        case TOK_MULTIPLY:      return "MULTIPLY";
+        case TOK_DIVIDE:        return "DIVIDE";
+        case TOK_MOD:           return "MOD";
         default:                return "UNKNOWN";
     }
 }
@@ -110,7 +114,7 @@ Token next_token(Lexer *lexer) {
     }
     else if (lexer->source[lexer->pos] == '-') {
         lexer->pos++;
-        t.type = TOK_UNARY_NEG;
+        t.type = TOK_NEG;
     }
     else if (lexer->source[lexer->pos] == '~') {
         lexer->pos++;
@@ -119,6 +123,22 @@ Token next_token(Lexer *lexer) {
     else if (lexer->source[lexer->pos] == '!') {
         lexer->pos++;
         t.type = TOK_UNARY_NOT;
+    }
+    else if (lexer->source[lexer->pos] == '+') {
+        lexer->pos++;
+        t.type = TOK_ADD;
+    }
+    else if (lexer->source[lexer->pos] == '*') {
+        lexer->pos++;
+        t.type = TOK_MULTIPLY;
+    }
+    else if (lexer->source[lexer->pos] == '/') {
+        lexer->pos++;
+        t.type = TOK_DIVIDE;
+    }
+    else if (lexer->source[lexer->pos] == '%') {
+        lexer->pos++;
+        t.type = TOK_MOD;
     }
     // look for words
     else if (isalpha((unsigned char) lexer->source[lexer->pos]) || lexer->source[lexer->pos] == '_') {

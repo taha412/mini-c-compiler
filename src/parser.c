@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "lexer.h"
 #include "parser.h"
@@ -21,10 +22,21 @@ void expect(Parser *parser, TokenType expected_type) {
 
 static UNARY_OP token_to_op(TokenType token_type) {
     switch (token_type) {
-        case TOK_UNARY_NEG:     return OP_NEG;
+        case TOK_NEG:           return OP_NEG;
         case TOK_UNARY_COMPL:   return OP_COMPL;
         case TOK_UNARY_NOT:     return OP_NOT;
         default:                return OP_FAILURE;
+    }
+}
+
+static BINARY_OP token_to_bin(TokenType token_type) {
+    switch (token_type) {
+        case TOK_NEG:           return BIN_NEG;
+        case TOK_ADD:           return BIN_ADD;
+        case TOK_MULTIPLY:      return BIN_MULTIPLY;
+        case TOK_DIVIDE:        return BIN_DIVIDE;
+        case TOK_MOD:           return BIN_MOD;
+        default:                return BIN_FAILURE;
     }
 }
 
@@ -82,23 +94,31 @@ Statement *parse_statement(Parser *parser) {
     }
 }
 
-Expression *parse_expression(Parser *parser) {
-    Expression *expr = (Expression *) malloc(sizeof(Expression));
-    
-    if (parser->curr_token.type == TOK_INT_LIT) {
-        expr->type = EXPR_INT_LIT;
-        expr->val = parser->curr_token.int_val;
+Expression *parse_factor(Parser *parser) {
+    UNARY_OP op = token_to_op(parser->curr_token.type);
+
+    if (parser->curr_token.type == TOK_OPAREN) {
         advance(parser);
+        Expression *expr = parse_expression(parser);
+        expect(parser, TOK_CPAREN);
         return expr;
     }
     
-    UNARY_OP unary_op = token_to_op(parser->curr_token.type);
-
-    if (unary_op != OP_FAILURE) {
+    else if (op != OP_FAILURE) {
         advance(parser);
-        expr->type = EXPR_UNARY;
-        expr->op = unary_op;
-        expr->operand = parse_expression(parser);
+        Expression *factor = parse_factor(parser);
+        Expression *unop = (Expression *) malloc(sizeof(Expression));
+        unop->type = EXPR_UNOP;
+        unop->lterm = factor;
+        unop->un_op = op;
+        return unop;
+    }
+
+    else if (parser->curr_token.type == TOK_INT_LIT) {
+        Expression *expr = (Expression *) malloc(sizeof(Expression));
+        expr->type = EXPR_CONST;
+        expr->int_val = parser->curr_token.int_val;
+        advance(parser);
         return expr;
     }
 
@@ -106,6 +126,46 @@ Expression *parse_expression(Parser *parser) {
         printf("Error: Invalid expression.\n");
         exit(1);
     }
+}
+
+Expression *parse_term(Parser *parser) {
+    Expression *curr_expr = parse_factor(parser);
+
+    while (parser->curr_token.type == TOK_MULTIPLY || parser->curr_token.type == TOK_DIVIDE || parser->curr_token.type == TOK_MOD) {
+        BINARY_OP op = token_to_bin(parser->curr_token.type);
+        advance(parser);
+        Expression *next_factor = parse_factor(parser);
+
+        Expression *new_expr = (Expression *) malloc(sizeof(Expression));
+        new_expr->type = EXPR_BINOP;
+        new_expr->lterm = curr_expr;
+        new_expr->bin_op = op;
+        new_expr->rterm = next_factor;
+
+        curr_expr = new_expr;
+    }
+
+    return curr_expr;
+}
+
+Expression *parse_expression(Parser *parser) {
+    Expression *curr_expr = parse_term(parser);
+
+    while (parser->curr_token.type == TOK_ADD || parser->curr_token.type == TOK_NEG) {
+        BINARY_OP op = token_to_bin(parser->curr_token.type);
+        advance(parser);
+        Expression *next_term = parse_term(parser);
+
+        Expression *new_expr = (Expression *) malloc(sizeof(Expression));
+        new_expr->type = EXPR_BINOP;
+        new_expr->lterm = curr_expr;
+        new_expr->bin_op = op;
+        new_expr->rterm = next_term;
+
+        curr_expr = new_expr;
+    }
+
+    return curr_expr;
 }
 
 
@@ -118,20 +178,34 @@ static void print_indent(int level) {
     }
 }
 
-void print_expression(Expression *expr, int level) {
+static void print_expression_helper(Expression *expr, int level) {
     print_indent(level);
-    if (expr->type == EXPR_INT_LIT) {
-        printf("Int<%ld>\n", expr->val);
+    if (expr->type == EXPR_CONST) {
+        printf("Int<%ld>", expr->int_val);
     }
 
-    else if (expr->type == EXPR_UNARY) {
-        printf("UNARY<%ld>\n", (long) expr->op);
-        print_expression(expr->operand, level+1);
+    else if (expr->type == EXPR_UNOP) {
+        printf("UNARY<%ld ", (long) expr->un_op);
+        print_expression_helper(expr->lterm, 0);
+        printf(" >");
+    }
+
+    else if (expr->type == EXPR_BINOP) {
+        printf("BIN< ");
+        print_expression_helper(expr->lterm, 0);
+        printf(" %ld ", (long) expr->bin_op);
+        print_expression_helper(expr->rterm, 0);
+        printf(" >");
     }
 
     else {
         printf("Unknown Expression.\n");
     }
+}
+
+void print_expression(Expression *expr, int level) {
+    print_expression_helper(expr, level);
+    printf("\n");
 }
 
 void print_statement(Statement *stmt, int level) {
