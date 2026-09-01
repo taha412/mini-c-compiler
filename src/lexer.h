@@ -20,7 +20,10 @@ typedef enum TokenType {
     TOK_INT_LIT,
     TOK_END_OF_FILE,
     TOK_KEYW_INT,
-    TOK_KEYW_RETURN
+    TOK_KEYW_RETURN,
+    TOK_UNARY_NEG,
+    TOK_UNARY_COMPL,
+    TOK_UNARY_NOT
 } TokenType;
 
 typedef struct Token {

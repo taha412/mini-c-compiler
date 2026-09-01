@@ -20,6 +20,9 @@ const char* token_type_to_string(TokenType type) {
         case TOK_END_OF_FILE:   return "END_OF_FILE";
         case TOK_KEYW_INT:      return "KEYW_INT";
         case TOK_KEYW_RETURN:   return "KEYW_RETURN";
+        case TOK_UNARY_NEG:     return "NEG";
+        case TOK_UNARY_COMPL:   return "COMPL";
+        case TOK_UNARY_NOT:     return "NOT";
         default:                return "UNKNOWN";
     }
 }
@@ -104,6 +107,18 @@ Token next_token(Lexer *lexer) {
     else if (lexer->source[lexer->pos] == ';') {
         lexer->pos++;
         t.type = TOK_SEMI;
+    }
+    else if (lexer->source[lexer->pos] == '-') {
+        lexer->pos++;
+        t.type = TOK_UNARY_NEG;
+    }
+    else if (lexer->source[lexer->pos] == '~') {
+        lexer->pos++;
+        t.type = TOK_UNARY_COMPL;
+    }
+    else if (lexer->source[lexer->pos] == '!') {
+        lexer->pos++;
+        t.type = TOK_UNARY_NOT;
     }
     // look for words
     else if (isalpha((unsigned char) lexer->source[lexer->pos]) || lexer->source[lexer->pos] == '_') {

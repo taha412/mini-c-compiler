@@ -3,13 +3,23 @@
 
 #include "lexer.h"
 
+typedef struct Expression Expression;
+
 typedef enum STMT_TYPE {
     STMT_RETURN
 } STMT_TYPE;
 
 typedef enum EXPR_TYPE {
-    EXPR_INT_LIT
+    EXPR_INT_LIT,
+    EXPR_UNARY
 } EXPR_TYPE;
+
+typedef enum UNARY_OP {
+    OP_NEG,
+    OP_COMPL,
+    OP_NOT,
+    OP_FAILURE // exists to indicate token has no corresponding unary operator in token_to_op
+} UNARY_OP;
 
 typedef struct Parser {
     Lexer *lexer;
@@ -19,6 +29,8 @@ typedef struct Parser {
 typedef struct Expression {
     EXPR_TYPE type;
     int64_t val;
+    UNARY_OP op;
+    Expression *operand;
 } Expression;
 
 typedef struct Statement {

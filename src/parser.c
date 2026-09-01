@@ -19,6 +19,15 @@ void expect(Parser *parser, TokenType expected_type) {
     advance(parser);
 }
 
+static UNARY_OP token_to_op(TokenType token_type) {
+    switch (token_type) {
+        case TOK_UNARY_NEG:     return OP_NEG;
+        case TOK_UNARY_COMPL:   return OP_COMPL;
+        case TOK_UNARY_NOT:     return OP_NOT;
+        default:                return OP_FAILURE;
+    }
+}
+
 Program *parse_program(Parser *parser) {
     Program *prog = (Program *) malloc(sizeof(Program));
 
@@ -83,6 +92,16 @@ Expression *parse_expression(Parser *parser) {
         return expr;
     }
     
+    UNARY_OP unary_op = token_to_op(parser->curr_token.type);
+
+    if (unary_op != OP_FAILURE) {
+        advance(parser);
+        expr->type = EXPR_UNARY;
+        expr->op = unary_op;
+        expr->operand = parse_expression(parser);
+        return expr;
+    }
+
     else {
         printf("Error: Invalid expression.\n");
         exit(1);
@@ -103,6 +122,11 @@ void print_expression(Expression *expr, int level) {
     print_indent(level);
     if (expr->type == EXPR_INT_LIT) {
         printf("Int<%ld>\n", expr->val);
+    }
+
+    else if (expr->type == EXPR_UNARY) {
+        printf("UNARY<%ld>\n", (long) expr->op);
+        print_expression(expr->operand, level+1);
     }
 
     else {

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "parser.h"
 #include "codegen.h"
@@ -6,6 +7,26 @@
 static void codegen_expression(Expression *expr, FILE *out) {
     if (expr->type == EXPR_INT_LIT) {
         fprintf(out, "    movl $%ld, %%eax\n", (long) expr->val);
+    } else if (expr->type == EXPR_UNARY) {
+        switch (expr->op) {
+            case OP_NEG:
+                codegen_expression(expr->operand, out);
+                fprintf(out, "    neg %%eax\n");
+                break;
+            case OP_COMPL:
+                codegen_expression(expr->operand, out);
+                fprintf(out, "    not %%eax\n");
+                break;
+            case OP_NOT:
+                codegen_expression(expr->operand, out);
+                fprintf(out, "    cmpl $0, %%eax\n");
+                fprintf(out, "    movl $0, %%eax\n");
+                fprintf(out, "    sete %%al\n");
+                break;
+            default:
+                printf("Error: Could not generate code for unary operator.\n");
+                exit(1);
+        }
     }
 
 }
