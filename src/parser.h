@@ -3,16 +3,19 @@
 
 #include "lexer.h"
 
-typedef struct Expression Expression;
-
 typedef enum STMT_TYPE {
-    STMT_RETURN
+    STMT_BLOCK,
+    STMT_RETURN,
+    STMT_DECLARE,
+    STMT_EXPR
 } STMT_TYPE;
 
 typedef enum EXPR_TYPE {
     EXPR_BINOP,
     EXPR_UNOP,
-    EXPR_CONST
+    EXPR_CONST,
+    EXPR_ASS,
+    EXPR_VAR
 } EXPR_TYPE;
 
 typedef enum UNARY_OP {
@@ -44,18 +47,24 @@ typedef struct Parser {
     Token curr_token;
 } Parser;
 
-typedef struct Expression {
+typedef struct Expression { // TODO: Add a union to reduce memory usage
     EXPR_TYPE type;
-    Expression *lterm;
-    Expression *rterm;
+    struct Expression *lterm;
+    struct Expression *rterm;
     BINARY_OP bin_op;
     UNARY_OP un_op;
     int64_t int_val;
+    char text[64];
 } Expression;
 
 typedef struct Statement {
     STMT_TYPE type;
-    Expression *expr;
+    struct Statement *next;
+    union {                             // occupy same memory since will not be used at the same time
+        Expression *expr;               // not type STMT_BLOCK
+        struct Statement *block_head;   // type STMT_BLOCK
+    };
+    char name[64];
 } Statement;
 
 typedef struct Function {

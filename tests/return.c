@@ -1,3 +1,6 @@
 int main() {
-    return 10 + 20 > 25 && 5 != 5 || 2 == 2;
+    int a = 10;
+    int b = 3;
+    int c = a * b;
+    return c - a / b;
 }

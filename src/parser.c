@@ -8,6 +8,37 @@
 #include "parser.h"
 
 static Expression *parse_expression(Parser *parser);
+static Statement *parse_statement_block(Parser *parser);
+
+static char *unop_to_text(UNARY_OP symb) {
+    switch (symb) {
+        case OP_NEG:        return "-";
+        case OP_COMPL:      return "~";
+        case OP_NOT:        return "!";
+        case OP_FAILURE:    return "NOT A UNOP SYMBOL";
+        default:            return "UNKNOWN UNOP SYMBOL";
+    }
+}
+
+static char *binop_to_text(BINARY_OP symb) {
+    switch (symb) {
+        case BIN_ADD:       return "+";
+        case BIN_NEG:       return "-";
+        case BIN_MULTIPLY:  return "*";
+        case BIN_DIVIDE:    return "/";
+        case BIN_MOD:       return "%%";
+        case BIN_AND:       return "&&";
+        case BIN_OR:        return "||";
+        case BIN_EQ:        return "==";
+        case BIN_NEQ:       return "!=";
+        case BIN_LT:        return "<";
+        case BIN_LTE:       return "<=";
+        case BIN_GT:        return "<";
+        case BIN_GTE:       return ">=";
+        case BIN_FAILURE:   return "NOT A BINOP SYMBOL";
+        default:            return "UNKNOWN BINOP SYMBOL";
+    }
+}
 
 void advance(Parser *parser) {
     parser->curr_token = next_token(parser->lexer);
@@ -16,7 +47,7 @@ void advance(Parser *parser) {
 
 void expect(Parser *parser, TokenType expected_type) {
     if (parser->curr_token.type != expected_type) {
-        printf("Error: Unexpected token, expected %d but got %d.\n", expected_type, parser->curr_token.type);
+        printf("Error: Unexpected token, expected %s but got %s.\n", token_type_to_string(expected_type), token_type_to_string(parser->curr_token.type));
         exit(1);
     }
     advance(parser);
@@ -74,6 +105,15 @@ static Expression *parse_factor(Parser *parser) {
         Expression *expr = (Expression *) malloc(sizeof(Expression));
         expr->type = EXPR_CONST;
         expr->int_val = parser->curr_token.int_val;
+        advance(parser);
+        return expr;
+    }
+
+    else if (parser->curr_token.type == TOK_IDENTIFIER) { // variable
+        Expression *expr = (Expression *) malloc(sizeof(Expression));
+        expr->type = EXPR_VAR;
+        strncpy(expr->text, parser->curr_token.text, 63);
+        expr->text[63] = '\0'; //safety
         advance(parser);
         return expr;
     }
@@ -166,7 +206,6 @@ static Expression *parse_equality_expression(Parser *parser) {
 
 static Expression *parse_log_and_expression(Parser *parser) {
     Expression *curr_expr = parse_equality_expression(parser);
-
     while (parser->curr_token.type == TOK_AND) {
         BINARY_OP op = token_to_bin(parser->curr_token.type);
         advance(parser);
@@ -187,6 +226,20 @@ static Expression *parse_log_and_expression(Parser *parser) {
 static Expression *parse_expression(Parser *parser) {
     Expression *curr_expr = parse_log_and_expression(parser);
 
+    if (parser->curr_token.type == TOK_ASS) {
+        if (curr_expr->type != EXPR_VAR) {
+            printf("Error: Cannout assign a value to this expression\n");
+            exit(1);
+        }
+        // create assignment expression
+        Expression *next_term = (Expression *) malloc(sizeof(Expression));
+        next_term->type = EXPR_ASS;
+        next_term->lterm = curr_expr;
+        advance(parser);
+        next_term->rterm = parse_expression(parser);
+        return next_term;
+    }
+
     while (parser->curr_token.type == TOK_OR) {
         BINARY_OP op = token_to_bin(parser->curr_token.type);
         advance(parser);
@@ -205,24 +258,69 @@ static Expression *parse_expression(Parser *parser) {
 }
 
 static Statement *parse_statement(Parser *parser) {
-    Statement *s = (Statement *) malloc(sizeof(Statement));
-
     if (parser->curr_token.type == TOK_KEYW_RETURN) {
+        Statement *s = (Statement *) calloc(1, sizeof(Statement));
         s->type = STMT_RETURN;
         advance(parser);
         s->expr = parse_expression(parser);
         expect(parser, TOK_SEMI);
         return s;
     }
-    
-    else {
-        printf("Error: Invalid statement.\n");
-        exit(1);
+
+    else if (parser->curr_token.type == TOK_KEYW_INT) {
+        Statement *s = (Statement *) calloc(1, sizeof(Statement));
+        s->type = STMT_DECLARE;
+        advance(parser);
+        if (parser->curr_token.type != TOK_IDENTIFIER) {
+            printf("Error: Invalid variable name.");
+            exit(1);
+        }
+        strncpy(s->name, parser->curr_token.text, 63);
+        s->name[63] = '\0'; // safety
+        advance(parser);
+        s->expr = NULL;
+        if (parser->curr_token.type == TOK_ASS) {
+            advance(parser);
+            s->expr = parse_expression(parser);
+        }
+        expect(parser, TOK_SEMI);
+        return s;
     }
+
+    else if (parser->curr_token.type == TOK_OBRACE) {
+        return parse_statement_block(parser);
+    }
+
+    Statement *s = (Statement *) calloc(1, sizeof(Statement));
+    s->type = STMT_EXPR;
+    s->expr = parse_expression(parser);
+    expect(parser, TOK_SEMI);
+    return s;
+}
+
+static Statement *parse_statement_block(Parser *parser) {
+    expect(parser, TOK_OBRACE);
+    Statement *head = (Statement *) calloc(1, sizeof(Statement));
+    head->type = STMT_BLOCK;
+    Statement *curr = NULL;
+    Statement *new = NULL;
+    while (parser->curr_token.type != TOK_CBRACE && parser->curr_token.type != TOK_END_OF_FILE) {
+        new = parse_statement(parser);
+        if (curr == NULL) {
+            head->block_head = new;
+        } else {
+            curr->next = new;
+        }
+        curr = new;
+    }
+
+    expect(parser, TOK_CBRACE);
+
+    return head;
 }
 
 static Function *parse_function(Parser *parser) {
-    Function *func = (Function *) malloc(sizeof(Function));
+    Function *func = (Function *) calloc(1, sizeof(Function));
 
     expect(parser, TOK_KEYW_INT);
     if (parser->curr_token.type == TOK_IDENTIFIER) {
@@ -233,11 +331,7 @@ static Function *parse_function(Parser *parser) {
         expect(parser, TOK_OPAREN);
         expect(parser, TOK_CPAREN);
 
-        expect(parser, TOK_OBRACE);
-
-        func->stmt = parse_statement(parser);
-
-        expect(parser, TOK_CBRACE);
+        func->stmt = parse_statement_block(parser);
 
         return func;
     }
@@ -275,7 +369,7 @@ static void print_expression_helper(Expression *expr, int level) {
     }
 
     else if (expr->type == EXPR_UNOP) {
-        printf("UNARY<%ld ", (long) expr->un_op);
+        printf("UNARY<%s ", unop_to_text(expr->un_op));
         print_expression_helper(expr->lterm, 0);
         printf(" >");
     }
@@ -283,7 +377,17 @@ static void print_expression_helper(Expression *expr, int level) {
     else if (expr->type == EXPR_BINOP) {
         printf("BIN< ");
         print_expression_helper(expr->lterm, 0);
-        printf(" %ld ", (long) expr->bin_op);
+        printf(" %s ", binop_to_text(expr->bin_op));
+        print_expression_helper(expr->rterm, 0);
+        printf(" >");
+    }
+
+    else if (expr->type == EXPR_VAR) {
+        printf("VAR<%s>", expr->text);
+    }
+
+    else if (expr->type == EXPR_ASS) {
+        printf("ASS< %s = ", expr->lterm->text);
         print_expression_helper(expr->rterm, 0);
         printf(" >");
     }
@@ -300,13 +404,35 @@ void print_expression(Expression *expr, int level) {
 
 void print_statement(Statement *stmt, int level) {
     print_indent(level);
-    if (stmt->type == STMT_RETURN) {
-        printf("Return\n");
-        print_expression(stmt->expr, level+1);
-    }
 
-    else {
-        printf("Unknown Statement.\n");
+    switch (stmt->type) {
+        case STMT_RETURN:
+            printf("Return ");
+            print_expression(stmt->expr, 0);
+            break;
+        case STMT_BLOCK:
+            printf("BEGIN BLOCK\n");
+            print_statement(stmt->block_head, level+1);
+            print_indent(level);
+            printf("BLOCK END\n");
+            break;
+        case STMT_DECLARE:
+            printf("int %s", stmt->name);
+            if (stmt->expr != NULL) {
+                printf(" = ");
+                print_expression(stmt->expr, 0);
+            } else {
+                printf("\n");
+            }
+            break;
+        case STMT_EXPR:
+            print_expression(stmt->expr, 0);
+            break;
+        default:
+            printf("Unknown Statement.\n");
+    }
+    if (stmt->next != NULL) {
+        print_statement(stmt->next, level);
     }
 }
 

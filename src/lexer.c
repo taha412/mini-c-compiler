@@ -35,6 +35,7 @@ const char* token_type_to_string(TokenType type) {
         case TOK_LTE:           return "LTE";
         case TOK_GT:            return "GT";
         case TOK_GTE:           return "GTE";
+        case TOK_ASS:           return "ASSIGN";
         default:                return "UNKNOWN";
     }
 }
@@ -155,6 +156,10 @@ Token next_token(Lexer *lexer) {
     else if (lexer->source[lexer->pos] == '>' && lexer->source[lexer->pos + 1] != '=') {
         lexer->pos++;
         t.type = TOK_GT;
+    }
+    else if (lexer->source[lexer->pos] == '=' && lexer->source[lexer->pos + 1] != '=') {
+        lexer->pos++;
+        t.type = TOK_ASS;
     }
     // look for words
     else if (isalpha((unsigned char) lexer->source[lexer->pos]) || lexer->source[lexer->pos] == '_') {
