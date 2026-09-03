@@ -256,6 +256,14 @@ static void codegen_function(Function *fnctn, FILE *out) {
     symtab_initialize(&symtab);
 
     codegen_statement(fnctn->stmt, &symtab, out);
+
+    if (strcmp(fnctn->name, "main") == 0) {
+        // safety incase no return was specified
+        fprintf(out, "    movq %%rbp, %%rsp\n");
+        fprintf(out, "    popq %%rbp\n");
+        fprintf(out, "    movl $0, %%eax\n");
+        fprintf(out, "    ret\n");
+    }
 }
 
 void generate_code(Program *prog, FILE *out) {
