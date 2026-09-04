@@ -7,7 +7,7 @@
 #include "symtab.h"
 
 static void codegen_expression(Expression *expr, SymbolTable *symtab, FILE *out);
-static void codegen_statement(Statement *stmt, SymbolTable *symtab, FILE *out);
+static void codegen_statement(Statement *stmt, SymbolTable symtab, FILE *out);
 static void codegen_declaration(Declaration *decl, SymbolTable *symtab, FILE *out);
 static void codegen_block_item(BlockItem *bi, SymbolTable *symtab, FILE *out);
 static void codegen_function(Function *fnctn, FILE *out);
@@ -208,9 +208,10 @@ static void codegen_expression(Expression *expr, SymbolTable *symtab, FILE *out)
     }
 }
 
-static void codegen_statement(Statement *stmt, SymbolTable *symtab, FILE *out) {
+// symtab pass by value instead of pass by reference so local variables created in an inner scope do not exist in the outer scope
+static void codegen_statement(Statement *stmt, SymbolTable symtab, FILE *out) {
     if (stmt->type == STMT_RETURN) {
-        codegen_expression(stmt->expr, symtab, out);
+        codegen_expression(stmt->expr, &symtab, out);
         // epilogue
         fprintf(out, "    movq %%rbp, %%rsp\n");
         fprintf(out, "    popq %%rbp\n");
@@ -219,10 +220,10 @@ static void codegen_statement(Statement *stmt, SymbolTable *symtab, FILE *out) {
     }
 
     if (stmt->type == STMT_BLOCK) {
-        // codegen_statement(stmt->block_head, out);
+        symtab.scope_count = symtab.sym_count; // new scope for local variables
         BlockItem *curr = stmt->block_head;
         while (curr != NULL) {
-            codegen_block_item(curr, symtab, out);
+            codegen_block_item(curr, &symtab, out);
             
             if (curr->type == BLCKITEM_STMT && curr->stmt->type == STMT_RETURN) {
                 if (curr->next != NULL) {
@@ -233,16 +234,17 @@ static void codegen_statement(Statement *stmt, SymbolTable *symtab, FILE *out) {
 
             curr = curr->next;
         }
-        
+        int num_bytes_deallocate = 4 * (symtab.sym_count - symtab.scope_count);
+        fprintf(out, "    addq $%d, %%rsp\n", num_bytes_deallocate);
     }
 
     else if (stmt->type == STMT_EXPR) {
-        codegen_expression(stmt->expr, symtab, out);
+        codegen_expression(stmt->expr, &symtab, out);
     }
 
     else if (stmt->type == STMT_COND) {
         int clause_count = get_clause_count();
-        codegen_expression(stmt->expr, symtab, out);
+        codegen_expression(stmt->expr, &symtab, out);
         fprintf(out, "    cmpq $0, %%rax\n");
         if (stmt->else_stmt == NULL) {
             fprintf(out, "    je _condition_end%d\n", clause_count);
@@ -260,15 +262,12 @@ static void codegen_statement(Statement *stmt, SymbolTable *symtab, FILE *out) {
         fprintf(out, "_condition_end%d:\n", clause_count);
     }
 
-    // if (stmt->next != NULL) {
-    //     codegen_statement(stmt->next, out);
-    // }
     return;
 }
 
 static void codegen_declaration(Declaration *decl, SymbolTable *symtab, FILE *out) {
     if (decl->type == DECL_INT) {
-        if (symtab_lookup(symtab, decl->name) != -1) {
+        if (symtab_lookup_in_scope(symtab, decl->name) != -1) {
             printf("Error: variable with name %s is already defined\n", decl->name);
             exit(1);
         }
@@ -292,7 +291,7 @@ static void codegen_declaration(Declaration *decl, SymbolTable *symtab, FILE *ou
 
 static void codegen_block_item(BlockItem *bi, SymbolTable *symtab, FILE *out) {
     if (bi->type == BLCKITEM_STMT) {
-        codegen_statement(bi->stmt, symtab, out);
+        codegen_statement(bi->stmt, *symtab, out);
     }
 
     else if (bi->type == BLCKITEM_DECL) {
@@ -313,7 +312,7 @@ static void codegen_function(Function *fnctn, FILE *out) {
     SymbolTable symtab;
     symtab_initialize(&symtab);
 
-    codegen_statement(fnctn->stmt, &symtab, out);
+    codegen_statement(fnctn->stmt, symtab, out);
 
     if (strcmp(fnctn->name, "main") == 0) {
         // safety incase no return was specified
