@@ -1,6 +1,9 @@
 int main() {
-    int a = 10;
-    int b = 3;
-    int c = a * b;
-    return c - a / b;
+    int x = 1;
+    int y = 3;
+    if (x + y == 4) {
+        return 0 ? 5 : 6;
+    } else {
+        return 2;
+    }
 }

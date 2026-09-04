@@ -223,23 +223,8 @@ static Expression *parse_log_and_expression(Parser *parser) {
     return curr_expr;
 }
 
-static Expression *parse_expression(Parser *parser) {
+static Expression *parse_log_or_expression(Parser *parser) {
     Expression *curr_expr = parse_log_and_expression(parser);
-
-    if (parser->curr_token.type == TOK_ASS) {
-        if (curr_expr->type != EXPR_VAR) {
-            printf("Error: Cannout assign a value to this expression\n");
-            exit(1);
-        }
-        // create assignment expression
-        Expression *next_term = (Expression *) malloc(sizeof(Expression));
-        next_term->type = EXPR_ASS;
-        next_term->lterm = curr_expr;
-        advance(parser);
-        next_term->rterm = parse_expression(parser);
-        return next_term;
-    }
-
     while (parser->curr_token.type == TOK_OR) {
         BINARY_OP op = token_to_bin(parser->curr_token.type);
         advance(parser);
@@ -257,6 +242,46 @@ static Expression *parse_expression(Parser *parser) {
     return curr_expr;
 }
 
+// using recursion instead of a while loop because ternary is right associative instead of left associative
+static Expression *parse_cond_expression(Parser *parser) {
+    Expression *curr_expr = parse_log_or_expression(parser);
+    if (parser->curr_token.type == TOK_QMARK) {
+        advance(parser);
+        Expression *term_one = parse_expression(parser);
+        expect(parser, TOK_COLON);
+        Expression *term_two = parse_cond_expression(parser); // could use parse_expression here to enable assignment here
+        Expression *new_expr = (Expression *) malloc(sizeof(Expression));
+        new_expr->type = EXPR_TERNARY;
+        new_expr->term_cond = curr_expr;
+        new_expr->term_one = term_one;
+        new_expr->term_two = term_two;
+
+        curr_expr = new_expr;
+    }
+
+    return curr_expr;
+}
+
+static Expression *parse_expression(Parser *parser) {
+    Expression *curr_expr = parse_cond_expression(parser);
+
+    if (parser->curr_token.type == TOK_ASS) {
+        if (curr_expr->type != EXPR_VAR) {
+            printf("Error: Cannout assign a value to this expression\n");
+            exit(1);
+        }
+        // create assignment expression
+        Expression *next_term = (Expression *) malloc(sizeof(Expression));
+        next_term->type = EXPR_ASS;
+        next_term->lterm = curr_expr;
+        advance(parser);
+        next_term->rterm = parse_expression(parser);
+        return next_term;
+    }
+
+    return curr_expr;
+}
+
 static Statement *parse_statement(Parser *parser) {
     if (parser->curr_token.type == TOK_KEYW_RETURN) {
         Statement *s = (Statement *) calloc(1, sizeof(Statement));
@@ -267,30 +292,29 @@ static Statement *parse_statement(Parser *parser) {
         return s;
     }
 
-    else if (parser->curr_token.type == TOK_KEYW_INT) {
-        Statement *s = (Statement *) calloc(1, sizeof(Statement));
-        s->type = STMT_DECLARE;
-        advance(parser);
-        if (parser->curr_token.type != TOK_IDENTIFIER) {
-            printf("Error: Invalid variable name.");
-            exit(1);
-        }
-        strncpy(s->name, parser->curr_token.text, 63);
-        s->name[63] = '\0'; // safety
-        advance(parser);
-        s->expr = NULL;
-        if (parser->curr_token.type == TOK_ASS) {
-            advance(parser);
-            s->expr = parse_expression(parser);
-        }
-        expect(parser, TOK_SEMI);
-        return s;
-    }
-
     else if (parser->curr_token.type == TOK_OBRACE) {
         return parse_statement_block(parser);
     }
 
+    else if (parser->curr_token.type == TOK_IF) {
+        Statement *s = (Statement *) calloc(1, sizeof(Statement));
+        s->type = STMT_COND;
+        advance(parser);
+
+        expect(parser, TOK_OPAREN);
+        s->expr = parse_expression(parser);
+        expect(parser, TOK_CPAREN);
+
+        s->if_stmt = parse_statement(parser);
+
+        if (parser->curr_token.type == TOK_ELSE) {
+            advance(parser);
+            s->else_stmt = parse_statement(parser);
+        }
+        return s;
+    }
+
+    // try to parse it as an expression
     Statement *s = (Statement *) calloc(1, sizeof(Statement));
     s->type = STMT_EXPR;
     s->expr = parse_expression(parser);
@@ -298,14 +322,55 @@ static Statement *parse_statement(Parser *parser) {
     return s;
 }
 
+static Declaration *parse_declaration(Parser *parser) {
+    if (parser->curr_token.type == TOK_KEYW_INT) { // safety
+        Declaration *d = (Declaration *) calloc(1, sizeof(Declaration));
+        d->type = DECL_INT;
+        advance(parser);
+        if (parser->curr_token.type != TOK_IDENTIFIER) {
+            printf("Error: Invalid variable name.");
+            exit(1);
+        }
+        strncpy(d->name, parser->curr_token.text, 63);
+        d->name[63] = '\0'; // safety
+        advance(parser);
+        d->expr = NULL;
+        if (parser->curr_token.type == TOK_ASS) {
+            advance(parser);
+            d->expr = parse_expression(parser);
+        }
+        expect(parser, TOK_SEMI);
+        return d;
+    } else {
+        printf("Error: Unrecognized declaration\n");
+        exit(1);
+    }
+}
+
+static BlockItem *parse_block_item(Parser *parser) {
+    BlockItem *bi = (BlockItem *) calloc(1, sizeof(BlockItem));
+
+    if (parser->curr_token.type == TOK_KEYW_INT) {
+        bi->type = BLCKITEM_DECL;
+        bi->decl = parse_declaration(parser);
+        return bi;
+    }
+
+    else {
+        bi->type = BLCKITEM_STMT;
+        bi->stmt = parse_statement(parser);
+        return bi;
+    }
+}
+
 static Statement *parse_statement_block(Parser *parser) {
     expect(parser, TOK_OBRACE);
     Statement *head = (Statement *) calloc(1, sizeof(Statement));
     head->type = STMT_BLOCK;
-    Statement *curr = NULL;
-    Statement *new = NULL;
+    BlockItem *curr = NULL;
+    BlockItem *new = NULL;
     while (parser->curr_token.type != TOK_CBRACE && parser->curr_token.type != TOK_END_OF_FILE) {
-        new = parse_statement(parser);
+        new = parse_block_item(parser);
         if (curr == NULL) {
             head->block_head = new;
         } else {
@@ -356,13 +421,16 @@ Program *parse_program(Parser *parser) {
 
 
 // PRINTING
+
+void print_block_item(BlockItem *bi, int level);
+
 static void print_indent(int level) {
     for (int i = 0; i < level; i++) {
         printf("  "); // 2 spaces per level
     }
 }
 
-static void print_expression_helper(Expression *expr, int level) {
+void print_expression(Expression *expr, int level) {
     print_indent(level);
     if (expr->type == EXPR_CONST) {
         printf("Int<%ld>", expr->int_val);
@@ -370,15 +438,15 @@ static void print_expression_helper(Expression *expr, int level) {
 
     else if (expr->type == EXPR_UNOP) {
         printf("UNARY<%s ", unop_to_text(expr->un_op));
-        print_expression_helper(expr->lterm, 0);
+        print_expression(expr->lterm, 0);
         printf(" >");
     }
 
     else if (expr->type == EXPR_BINOP) {
         printf("BIN< ");
-        print_expression_helper(expr->lterm, 0);
+        print_expression(expr->lterm, 0);
         printf(" %s ", binop_to_text(expr->bin_op));
-        print_expression_helper(expr->rterm, 0);
+        print_expression(expr->rterm, 0);
         printf(" >");
     }
 
@@ -388,7 +456,17 @@ static void print_expression_helper(Expression *expr, int level) {
 
     else if (expr->type == EXPR_ASS) {
         printf("ASS< %s = ", expr->lterm->text);
-        print_expression_helper(expr->rterm, 0);
+        print_expression(expr->rterm, 0);
+        printf(" >");
+    }
+
+    else if (expr->type == EXPR_TERNARY) {
+        printf("TERNARY< ");
+        print_expression(expr->term_cond, 0);
+        printf(" ? ");
+        print_expression(expr->term_one, 0);
+        printf(" : ");
+        print_expression(expr->term_two, 0);
         printf(" >");
     }
 
@@ -397,9 +475,27 @@ static void print_expression_helper(Expression *expr, int level) {
     }
 }
 
-void print_expression(Expression *expr, int level) {
-    print_expression_helper(expr, level);
+void print_declaration(Declaration *decl, int level) {
+    print_indent(level);
+    if (decl->type == DECL_INT) {
+        printf("int %s", decl->name);
+        if (decl->expr != NULL) {
+            printf(" = ");
+            print_expression(decl->expr, 0);
+        }
+    }
+}
+
+void print_block_item(BlockItem *bi, int level) {
+    if (bi->type == BLCKITEM_STMT) {
+        print_statement(bi->stmt, level);
+    } else {
+        print_declaration(bi->decl, level);
+    }
     printf("\n");
+    if (bi->next != NULL) {
+        print_block_item(bi->next, level);
+    }
 }
 
 void print_statement(Statement *stmt, int level) {
@@ -412,27 +508,28 @@ void print_statement(Statement *stmt, int level) {
             break;
         case STMT_BLOCK:
             printf("BEGIN BLOCK\n");
-            print_statement(stmt->block_head, level+1);
+            print_block_item(stmt->block_head, level+1);
             print_indent(level);
             printf("BLOCK END\n");
-            break;
-        case STMT_DECLARE:
-            printf("int %s", stmt->name);
-            if (stmt->expr != NULL) {
-                printf(" = ");
-                print_expression(stmt->expr, 0);
-            } else {
-                printf("\n");
-            }
             break;
         case STMT_EXPR:
             print_expression(stmt->expr, 0);
             break;
+        case STMT_COND:
+            printf("IF ( ");
+            print_expression(stmt->expr, 0);
+            printf(" )\n");
+            print_statement(stmt->if_stmt, level);
+            printf("\n");
+            if (stmt->else_stmt != NULL) {
+                print_indent(level);
+                printf("ELSE\n");
+                print_statement(stmt->else_stmt, level+1);
+                printf("\n");
+            }
+            break;
         default:
             printf("Unknown Statement.\n");
-    }
-    if (stmt->next != NULL) {
-        print_statement(stmt->next, level);
     }
 }
 

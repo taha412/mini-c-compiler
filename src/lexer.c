@@ -36,6 +36,10 @@ const char* token_type_to_string(TokenType type) {
         case TOK_GT:            return "GT";
         case TOK_GTE:           return "GTE";
         case TOK_ASS:           return "ASSIGN";
+        case TOK_IF:            return "IF";
+        case TOK_ELSE:          return "ELSE";
+        case TOK_COLON:         return "COLON";
+        case TOK_QMARK:         return "QMARK";
         default:                return "UNKNOWN";
     }
 }
@@ -161,6 +165,14 @@ Token next_token(Lexer *lexer) {
         lexer->pos++;
         t.type = TOK_ASS;
     }
+    else if (lexer->source[lexer->pos] == ':') {
+        lexer->pos++;
+        t.type = TOK_COLON;
+    }
+    else if (lexer->source[lexer->pos] == '?') {
+        lexer->pos++;
+        t.type = TOK_QMARK;
+    }
     // look for words
     else if (isalpha((unsigned char) lexer->source[lexer->pos]) || lexer->source[lexer->pos] == '_') {
         int text_pos = 0;
@@ -178,6 +190,12 @@ Token next_token(Lexer *lexer) {
         }
         else if (strcmp(t.text, "return") == 0) {
             t.type = TOK_KEYW_RETURN;
+        }
+        else if (strcmp(t.text, "if") == 0) {
+            t.type = TOK_IF;
+        } 
+        else if (strcmp(t.text, "else") == 0) {
+            t.type = TOK_ELSE;
         }
         else {
             t.type = TOK_IDENTIFIER;
@@ -228,7 +246,6 @@ Token next_token(Lexer *lexer) {
             lexer->pos++;
         }
         t.type = TOK_INT_LIT;
-
     }
     else {
         printf("Error: Unrecognized character '%c'\n", lexer->source[lexer->pos]);

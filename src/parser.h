@@ -3,19 +3,30 @@
 
 #include "lexer.h"
 
+typedef enum BLCKITEM_TYPE {
+    BLCKITEM_STMT,
+    BLCKITEM_DECL
+} BLCKITEM_TYPE;
+
 typedef enum STMT_TYPE {
     STMT_BLOCK,
     STMT_RETURN,
-    STMT_DECLARE,
-    STMT_EXPR
+    // STMT_DECLARE,
+    STMT_EXPR,
+    STMT_COND
 } STMT_TYPE;
+
+typedef enum DECL_TYPE {
+    DECL_INT
+} DECL_TYPE;
 
 typedef enum EXPR_TYPE {
     EXPR_BINOP,
     EXPR_UNOP,
     EXPR_CONST,
     EXPR_ASS,
-    EXPR_VAR
+    EXPR_VAR,
+    EXPR_TERNARY
 } EXPR_TYPE;
 
 typedef enum UNARY_OP {
@@ -49,8 +60,15 @@ typedef struct Parser {
 
 typedef struct Expression { // TODO: Add a union to reduce memory usage
     EXPR_TYPE type;
-    struct Expression *lterm;
-    struct Expression *rterm;
+    union {
+        struct Expression *lterm;
+        struct Expression *term_cond;
+    };
+    union {
+        struct Expression *rterm;
+        struct Expression *term_one;
+    };
+    struct Expression *term_two;
     BINARY_OP bin_op;
     UNARY_OP un_op;
     int64_t int_val;
@@ -59,13 +77,29 @@ typedef struct Expression { // TODO: Add a union to reduce memory usage
 
 typedef struct Statement {
     STMT_TYPE type;
-    struct Statement *next;
+    Expression *expr;
     union {                             // occupy same memory since will not be used at the same time
-        Expression *expr;               // not type STMT_BLOCK
-        struct Statement *block_head;   // type STMT_BLOCK
+        struct BlockItem *block_head;   // type STMT_BLOCK
+        struct Statement *if_stmt;      // type STMT_COND
     };
-    char name[64];
+    struct Statement *else_stmt;
 } Statement;
+
+typedef struct Declaration {
+    DECL_TYPE type;
+    char name[64];
+    Expression *expr;
+    
+} Declaration;
+
+typedef struct BlockItem {
+    BLCKITEM_TYPE type;
+    union {
+        Statement *stmt;
+        Declaration *decl;
+    };
+    struct BlockItem *next;
+} BlockItem;
 
 typedef struct Function {
     char name[64];

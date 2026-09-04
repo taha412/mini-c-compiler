@@ -35,7 +35,11 @@ typedef enum TokenType {
     TOK_LTE,
     TOK_GT,
     TOK_GTE,
-    TOK_ASS
+    TOK_ASS,
+    TOK_IF,
+    TOK_ELSE,
+    TOK_COLON,
+    TOK_QMARK
 } TokenType;
 
 typedef struct Token {

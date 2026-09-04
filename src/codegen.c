@@ -1,9 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "parser.h"
 #include "codegen.h"
 #include "symtab.h"
+
+static void codegen_expression(Expression *expr, SymbolTable *symtab, FILE *out);
+static void codegen_statement(Statement *stmt, SymbolTable *symtab, FILE *out);
+static void codegen_declaration(Declaration *decl, SymbolTable *symtab, FILE *out);
+static void codegen_block_item(BlockItem *bi, SymbolTable *symtab, FILE *out);
+static void codegen_function(Function *fnctn, FILE *out);
 
 int clause_count = 0;
 
@@ -184,6 +191,21 @@ static void codegen_expression(Expression *expr, SymbolTable *symtab, FILE *out)
         }
         fprintf(out, "    movl %d(%%rbp), %%eax\n", offset);
     }
+
+    else if (expr->type == EXPR_TERNARY) {
+        int clause_count = get_clause_count();
+
+        codegen_expression(expr->term_cond, symtab, out);
+        fprintf(out, "    cmpq $0, %%rax\n");
+        fprintf(out, "    je _ternary_two%d\n", clause_count);
+
+        codegen_expression(expr->term_one, symtab, out);
+        fprintf(out, "    jmp _ternary_end%d\n", clause_count);
+
+        fprintf(out, "_ternary_two%d:\n", clause_count);
+        codegen_expression(expr->term_two, symtab, out);
+        fprintf(out, "_ternary_end%d:\n", clause_count);
+    }
 }
 
 static void codegen_statement(Statement *stmt, SymbolTable *symtab, FILE *out) {
@@ -198,11 +220,11 @@ static void codegen_statement(Statement *stmt, SymbolTable *symtab, FILE *out) {
 
     if (stmt->type == STMT_BLOCK) {
         // codegen_statement(stmt->block_head, out);
-        Statement *curr = stmt->block_head;
+        BlockItem *curr = stmt->block_head;
         while (curr != NULL) {
-            codegen_statement(curr, symtab, out);
+            codegen_block_item(curr, symtab, out);
             
-            if (curr->type == STMT_RETURN) {
+            if (curr->type == BLCKITEM_STMT && curr->stmt->type == STMT_RETURN) {
                 if (curr->next != NULL) {
                     printf("Warning: Code will never be reached\n");
                 }
@@ -218,29 +240,65 @@ static void codegen_statement(Statement *stmt, SymbolTable *symtab, FILE *out) {
         codegen_expression(stmt->expr, symtab, out);
     }
 
-    else if (stmt->type == STMT_DECLARE) {
-        if (symtab_lookup(symtab, stmt->name) != -1) {
-            printf("Error: variable with name %s is already defined\n", stmt->name);
+    else if (stmt->type == STMT_COND) {
+        int clause_count = get_clause_count();
+        codegen_expression(stmt->expr, symtab, out);
+        fprintf(out, "    cmpq $0, %%rax\n");
+        if (stmt->else_stmt == NULL) {
+            fprintf(out, "    je _condition_end%d\n", clause_count);
+        } else {
+            fprintf(out, "    je _condition_else%d\n", clause_count);
+        }
+        codegen_statement(stmt->if_stmt, symtab, out);
+
+        if (stmt->else_stmt != NULL) {
+            fprintf(out, "    jmp _condition_end%d\n", clause_count);
+            fprintf(out, "_condition_else%d:\n", clause_count);
+            codegen_statement(stmt->else_stmt, symtab, out);
+        }
+        
+        fprintf(out, "_condition_end%d:\n", clause_count);
+    }
+
+    // if (stmt->next != NULL) {
+    //     codegen_statement(stmt->next, out);
+    // }
+    return;
+}
+
+static void codegen_declaration(Declaration *decl, SymbolTable *symtab, FILE *out) {
+    if (decl->type == DECL_INT) {
+        if (symtab_lookup(symtab, decl->name) != -1) {
+            printf("Error: variable with name %s is already defined\n", decl->name);
             exit(1);
         }
 
-        if (stmt->expr != NULL) {
-            codegen_expression(stmt->expr, symtab, out);
+        if (decl->expr != NULL) {
+            codegen_expression(decl->expr, symtab, out);
         } else {
             fprintf(out, "    movl $0, %%eax\n");
         }
         
         // fprintf(out, "    pushq %%rax\n"); cant use pushq as it stores 64 bits instead of 32
 
-        int offset = symtab_add(symtab, stmt->name);
+        int offset = symtab_add(symtab, decl->name);
 
-        fprintf(out, "    movl %%eax, %d(%%rbp)\n", offset);
         fprintf(out, "    subq $4, %%rsp\n");
+        fprintf(out, "    movl %%eax, %d(%%rbp)\n", offset);
     }
 
-    // if (stmt->next != NULL) {
-    //     codegen_statement(stmt->next, out);
-    // }
+    return;
+}
+
+static void codegen_block_item(BlockItem *bi, SymbolTable *symtab, FILE *out) {
+    if (bi->type == BLCKITEM_STMT) {
+        codegen_statement(bi->stmt, symtab, out);
+    }
+
+    else if (bi->type == BLCKITEM_DECL) {
+        codegen_declaration(bi->decl, symtab, out);
+    }
+
     return;
 }
 
