@@ -218,6 +218,10 @@ static void resolve_statement(Statement *stmt, SymbolTable symtab) {
         return;
     }
 
+    else if (stmt->type == STMT_NULL) {
+        return;
+    }
+
     return;
 }
 

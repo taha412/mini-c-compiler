@@ -398,6 +398,13 @@ static Statement *parse_statement(Parser *parser) {
         return s;
     }
 
+    else if (parser->curr_token.type == TOK_SEMI) {
+        Statement *s = (Statement *) calloc(1, sizeof(Statement));
+        s->type = STMT_NULL;
+        advance(parser);
+        return s;
+    }
+
     // try to parse it as an expression
     Statement *s = (Statement *) calloc(1, sizeof(Statement));
     s->type = STMT_EXPR;

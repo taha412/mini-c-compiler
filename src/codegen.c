@@ -290,6 +290,10 @@ static void codegen_statement(Statement *stmt, FILE *out) {
         return;
     }
 
+    else if (stmt->type == STMT_NULL) {
+        return;
+    }
+
     return;
 }
 

@@ -17,7 +17,8 @@ typedef enum STMT_TYPE {
     STMT_WHILE,
     STMT_DO_WHILE,
     STMT_BREAK,
-    STMT_CONT
+    STMT_CONT,
+    STMT_NULL
 } STMT_TYPE;
 
 typedef enum DECL_TYPE {
