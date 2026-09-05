@@ -11,12 +11,6 @@ static void codegen_declaration(Declaration *decl, FILE *out);
 static void codegen_block_item(BlockItem *bi, FILE *out);
 static void codegen_function(Function *fnctn, FILE *out);
 
-int clause_count = 0;
-
-int get_clause_count() {
-    return clause_count++;
-}
-
 static void codegen_expression(Expression *expr, FILE *out) {
     if (expr->type == EXPR_CONST) {
         fprintf(out, "    movq $%ld, %%rax\n", (long) expr->int_val);
@@ -45,7 +39,6 @@ static void codegen_expression(Expression *expr, FILE *out) {
     }
 
     else if (expr->type == EXPR_BINOP) {
-        int clause_count;
         switch (expr->bin_op) {
             case BIN_NEG:
                 codegen_expression(expr->rterm, out);
@@ -140,31 +133,29 @@ static void codegen_expression(Expression *expr, FILE *out) {
                 fprintf(out, "    setge %%al\n");
                 break;
             case BIN_AND:
-                clause_count = get_clause_count();
                 codegen_expression(expr->lterm, out);
                 fprintf(out, "    cmpq $0, %%rax\n");
-                fprintf(out, "    jne _clause%d\n", clause_count);
-                fprintf(out, "    jmp _end%d\n", clause_count);
-                fprintf(out, "_clause%d:\n", clause_count);
+                fprintf(out, "    jne _clause%d\n", expr->clause_count);
+                fprintf(out, "    jmp _end%d\n", expr->clause_count);
+                fprintf(out, "_clause%d:\n", expr->clause_count);
                 codegen_expression(expr->rterm, out);
                 fprintf(out, "    cmpq $0, %%rax\n");
                 fprintf(out, "    movq $0, %%rax\n");
                 fprintf(out, "    setne %%al\n");
-                fprintf(out, "_end%d:\n", clause_count);
+                fprintf(out, "_end%d:\n", expr->clause_count);
                 break;
             case BIN_OR:
-                clause_count = get_clause_count();
                 codegen_expression(expr->lterm, out);
                 fprintf(out, "    cmpq $0, %%rax\n");
-                fprintf(out, "    je _clause%d\n", clause_count);
+                fprintf(out, "    je _clause%d\n", expr->clause_count);
                 fprintf(out, "    movq $1, %%rax\n");
-                fprintf(out, "    jmp _end%d\n", clause_count);
-                fprintf(out, "_clause%d:\n", clause_count);
+                fprintf(out, "    jmp _end%d\n", expr->clause_count);
+                fprintf(out, "_clause%d:\n", expr->clause_count);
                 codegen_expression(expr->rterm, out);
                 fprintf(out, "    cmpq $0, %%rax\n");
                 fprintf(out, "    movq $0, %%rax\n");
                 fprintf(out, "    setne %%al\n");
-                fprintf(out, "_end%d:\n", clause_count);
+                fprintf(out, "_end%d:\n", expr->clause_count);
                 break;
             default:
                 printf("Error: Could not generate code for binary operator.\n");
@@ -183,18 +174,16 @@ static void codegen_expression(Expression *expr, FILE *out) {
     }
 
     else if (expr->type == EXPR_TERNARY) {
-        int clause_count = get_clause_count();
-
         codegen_expression(expr->term_cond, out);
         fprintf(out, "    cmpq $0, %%rax\n");
-        fprintf(out, "    je _ternary_two%d\n", clause_count);
+        fprintf(out, "    je _ternary_two%d\n", expr->clause_count);
 
         codegen_expression(expr->term_one, out);
-        fprintf(out, "    jmp _ternary_end%d\n", clause_count);
+        fprintf(out, "    jmp _ternary_end%d\n", expr->clause_count);
 
-        fprintf(out, "_ternary_two%d:\n", clause_count);
+        fprintf(out, "_ternary_two%d:\n", expr->clause_count);
         codegen_expression(expr->term_two, out);
-        fprintf(out, "_ternary_end%d:\n", clause_count);
+        fprintf(out, "_ternary_end%d:\n", expr->clause_count);
     }
 }
 
@@ -221,37 +210,35 @@ static void codegen_statement(Statement *stmt, FILE *out) {
     }
 
     else if (stmt->type == STMT_COND) {
-        int clause_count = get_clause_count();
         codegen_expression(stmt->expr, out);
         fprintf(out, "    cmpq $0, %%rax\n");
         if (stmt->else_stmt == NULL) {
-            fprintf(out, "    je _condition_end%d\n", clause_count);
+            fprintf(out, "    je _condition_end%d\n", stmt->clause_count);
         } else {
-            fprintf(out, "    je _condition_else%d\n", clause_count);
+            fprintf(out, "    je _condition_else%d\n", stmt->clause_count);
         }
         codegen_statement(stmt->if_stmt, out);
 
         if (stmt->else_stmt != NULL) {
-            fprintf(out, "    jmp _condition_end%d\n", clause_count);
-            fprintf(out, "_condition_else%d:\n", clause_count);
+            fprintf(out, "    jmp _condition_end%d\n", stmt->clause_count);
+            fprintf(out, "_condition_else%d:\n", stmt->clause_count);
             codegen_statement(stmt->else_stmt, out);
         }
         
-        fprintf(out, "_condition_end%d:\n", clause_count);
+        fprintf(out, "_condition_end%d:\n", stmt->clause_count);
     }
 
     else if (stmt->type == STMT_FOR) {
-        int clause_count = get_clause_count();
         if (stmt->init != NULL) {
             codegen_block_item(stmt->init, out);
         }
 
-        fprintf(out, "_for_loop%d:\n", clause_count);
+        fprintf(out, "_for_loop%d:\n", stmt->clause_count);
 
         if (stmt->cond != NULL) {
             codegen_expression(stmt->cond, out);
             fprintf(out, "    cmpq $0, %%rax\n");
-            fprintf(out, "    je _loop_end%d\n", clause_count);
+            fprintf(out, "    je _loop_end%d\n", stmt->clause_count);
         }
 
         codegen_statement(stmt->loop_stmt, out);
@@ -259,36 +246,34 @@ static void codegen_statement(Statement *stmt, FILE *out) {
         if (stmt->post != NULL) {
             codegen_expression(stmt->post, out);
         }
-        fprintf(out, "    jmp _for_loop%d\n", clause_count);
-        fprintf(out, "_loop_end%d:\n", clause_count);
+        fprintf(out, "    jmp _for_loop%d\n", stmt->clause_count);
+        fprintf(out, "_loop_end%d:\n", stmt->clause_count);
         return;
         
     }
 
     else if (stmt->type == STMT_WHILE) {
-        int clause_count = get_clause_count();
-        fprintf(out, "_while%d:\n", clause_count);
+        fprintf(out, "_while%d:\n", stmt->clause_count);
 
         codegen_expression(stmt->expr, out);
         fprintf(out, "    cmpq $0, %%rax\n");
-        fprintf(out, "    je _loop_end%d\n", clause_count);
+        fprintf(out, "    je _loop_end%d\n", stmt->clause_count);
 
         codegen_statement(stmt->loop_stmt, out);
 
-        fprintf(out, "    jmp _while%d\n", clause_count);
-        fprintf(out, "_loop_end%d:\n", clause_count);
+        fprintf(out, "    jmp _while%d\n", stmt->clause_count);
+        fprintf(out, "_loop_end%d:\n", stmt->clause_count);
     }
 
     else if (stmt->type == STMT_DO_WHILE) {
-        int clause_count = get_clause_count();
-        fprintf(out, "_do_while%d:\n", clause_count);
+        fprintf(out, "_do_while%d:\n", stmt->clause_count);
 
         codegen_statement(stmt->loop_stmt, out);
 
         codegen_expression(stmt->expr, out);
         fprintf(out, "    cmpq $0, %%rax\n");
-        fprintf(out, "    jne _do_while%d\n", clause_count);
-        fprintf(out, "_loop_end%d:\n", clause_count);
+        fprintf(out, "    jne _do_while%d\n", stmt->clause_count);
+        fprintf(out, "_loop_end%d:\n", stmt->clause_count);
         return;
     }
 

@@ -78,6 +78,7 @@ typedef struct Expression { // TODO: Add a union to reduce memory usage
     int64_t int_val;
     char text[64];
     int resolved_offset;
+    int clause_count;
 } Expression;
 
 typedef struct Statement {
@@ -96,6 +97,7 @@ typedef struct Statement {
         struct Statement *else_stmt;
         struct Expression *post;
     };
+    int clause_count;
 } Statement;
 
 typedef struct Declaration {

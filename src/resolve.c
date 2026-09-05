@@ -6,6 +6,11 @@
 #include "parser.h"
 
 int largest_offset = 0;
+int curr_clause_count = 0;
+
+int get_clause_count() {
+    return curr_clause_count++;
+}
 
 static void resolve_block_item(BlockItem *bi, SymbolTable *symtab);
 
@@ -81,10 +86,12 @@ static void resolve_expression(Expression *expr, SymbolTable *symtab) {
                 resolve_expression(expr->rterm, symtab);
                 break;
             case BIN_AND:
+                expr->clause_count = get_clause_count();
                 resolve_expression(expr->lterm, symtab);
                 resolve_expression(expr->rterm, symtab);
                 break;
             case BIN_OR:
+                expr->clause_count = get_clause_count();
                 resolve_expression(expr->lterm, symtab);
                 resolve_expression(expr->rterm, symtab);
                 break;
@@ -114,6 +121,7 @@ static void resolve_expression(Expression *expr, SymbolTable *symtab) {
     }
 
     else if (expr->type == EXPR_TERNARY) {
+        expr->clause_count = get_clause_count();
         resolve_expression(expr->term_cond, symtab);
         resolve_expression(expr->term_one, symtab);
         resolve_expression(expr->term_two, symtab);
@@ -150,6 +158,7 @@ static void resolve_statement(Statement *stmt, SymbolTable symtab) {
     }
 
     else if (stmt->type == STMT_COND) {
+        stmt->clause_count = get_clause_count();
         resolve_expression(stmt->expr, &symtab);
         resolve_statement(stmt->if_stmt, symtab);
 
@@ -159,6 +168,7 @@ static void resolve_statement(Statement *stmt, SymbolTable symtab) {
     }
 
     else if (stmt->type == STMT_FOR) {
+        stmt->clause_count = get_clause_count();
         if (stmt->init != NULL) {
             resolve_block_item(stmt->init, &symtab);
         }
@@ -175,11 +185,13 @@ static void resolve_statement(Statement *stmt, SymbolTable symtab) {
     }
 
     else if (stmt->type == STMT_WHILE) {
+        stmt->clause_count = get_clause_count();
         resolve_expression(stmt->expr, &symtab);
         resolve_statement(stmt->loop_stmt, symtab);
     }
 
     else if (stmt->type == STMT_DO_WHILE) {
+        stmt->clause_count = get_clause_count();
         resolve_statement(stmt->loop_stmt, symtab);
         resolve_expression(stmt->expr, &symtab);
         return;
