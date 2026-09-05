@@ -8,6 +8,7 @@ void symtab_initialize(SymbolTable *symtab) {
     symtab->sym_count = 0;
     symtab->curr_offset = -4;
     symtab->scope_count = 0;
+    symtab->scope_clause_count = -1; // stores clause count of current scope for continue and break logic
 }
 
 int symtab_add(SymbolTable *symtab, char *name) {

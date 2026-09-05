@@ -597,7 +597,9 @@ void print_statement(Statement *stmt, int level) {
             break;
         case STMT_BLOCK:
             printf("BEGIN BLOCK\n");
-            print_block_item(stmt->block_head, level+1);
+            if (stmt->block_head != NULL) {
+                print_block_item(stmt->block_head, level+1);
+            }
             print_indent(level);
             printf("BLOCK END");
             break;

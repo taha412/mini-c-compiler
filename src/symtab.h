@@ -11,6 +11,7 @@ typedef struct SymbolTable {
     int sym_count;
     int curr_offset;
     int scope_count;
+    int scope_clause_count;
 } SymbolTable;
 
 void symtab_initialize(SymbolTable *symtab);

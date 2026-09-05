@@ -169,6 +169,7 @@ static void resolve_statement(Statement *stmt, SymbolTable symtab) {
 
     else if (stmt->type == STMT_FOR) {
         stmt->clause_count = get_clause_count();
+        symtab.scope_clause_count = stmt->clause_count;
         if (stmt->init != NULL) {
             resolve_block_item(stmt->init, &symtab);
         }
@@ -186,24 +187,34 @@ static void resolve_statement(Statement *stmt, SymbolTable symtab) {
 
     else if (stmt->type == STMT_WHILE) {
         stmt->clause_count = get_clause_count();
+        symtab.scope_clause_count = stmt->clause_count;
         resolve_expression(stmt->expr, &symtab);
         resolve_statement(stmt->loop_stmt, symtab);
     }
 
     else if (stmt->type == STMT_DO_WHILE) {
         stmt->clause_count = get_clause_count();
+        symtab.scope_clause_count = stmt->clause_count;
         resolve_statement(stmt->loop_stmt, symtab);
         resolve_expression(stmt->expr, &symtab);
         return;
     }
 
     else if (stmt->type == STMT_CONT) {
-        //TODO
+        if (symtab.scope_clause_count == -1) {
+            printf("Error: Can not use continue outside of a loop");
+            exit(1);
+        }
+        stmt->clause_count = symtab.scope_clause_count;
         return;
     }
 
     else if (stmt->type == STMT_BREAK) {
-        //TODO
+        if (symtab.scope_clause_count == -1) {
+            printf("Error: Can not use break outside of a loop");
+            exit(1);
+        }
+        stmt->clause_count = symtab.scope_clause_count;
         return;
     }
 
