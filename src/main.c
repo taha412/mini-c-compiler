@@ -4,6 +4,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "codegen.h"
+#include "resolve.h"
 
 int main(int argc, char** args) {
     if (argc < 2) {
@@ -31,6 +32,8 @@ int main(int argc, char** args) {
         free(code);
         return 1;
     }
+
+    resolve_code(ast);
 
     generate_code(ast, out);
 

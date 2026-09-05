@@ -73,6 +73,7 @@ typedef struct Expression { // TODO: Add a union to reduce memory usage
     UNARY_OP un_op;
     int64_t int_val;
     char text[64];
+    int resolved_offset;
 } Expression;
 
 typedef struct Statement {
@@ -89,6 +90,7 @@ typedef struct Declaration {
     DECL_TYPE type;
     char name[64];
     Expression *expr;
+    int resolved_offset;
     
 } Declaration;
 
@@ -104,6 +106,7 @@ typedef struct BlockItem {
 typedef struct Function {
     char name[64];
     Statement *stmt;
+    int frame_size;
 } Function;
 
 typedef struct Program {

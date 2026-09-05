@@ -4,12 +4,11 @@
 
 #include "parser.h"
 #include "codegen.h"
-#include "symtab.h"
 
-static void codegen_expression(Expression *expr, SymbolTable *symtab, FILE *out);
-static void codegen_statement(Statement *stmt, SymbolTable symtab, FILE *out);
-static void codegen_declaration(Declaration *decl, SymbolTable *symtab, FILE *out);
-static void codegen_block_item(BlockItem *bi, SymbolTable *symtab, FILE *out);
+static void codegen_expression(Expression *expr, FILE *out);
+static void codegen_statement(Statement *stmt, FILE *out);
+static void codegen_declaration(Declaration *decl, FILE *out);
+static void codegen_block_item(BlockItem *bi, FILE *out);
 static void codegen_function(Function *fnctn, FILE *out);
 
 int clause_count = 0;
@@ -18,7 +17,7 @@ int get_clause_count() {
     return clause_count++;
 }
 
-static void codegen_expression(Expression *expr, SymbolTable *symtab, FILE *out) {
+static void codegen_expression(Expression *expr, FILE *out) {
     if (expr->type == EXPR_CONST) {
         fprintf(out, "    movq $%ld, %%rax\n", (long) expr->int_val);
     }
@@ -26,15 +25,15 @@ static void codegen_expression(Expression *expr, SymbolTable *symtab, FILE *out)
     else if (expr->type == EXPR_UNOP) {
         switch (expr->un_op) {
             case OP_NEG:
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    neg %%rax\n");
                 break;
             case OP_COMPL:
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    not %%rax\n");
                 break;
             case OP_NOT:
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    cmpq $0, %%rax\n");
                 fprintf(out, "    movq $0, %%rax\n");
                 fprintf(out, "    sete %%al\n");
@@ -49,92 +48,92 @@ static void codegen_expression(Expression *expr, SymbolTable *symtab, FILE *out)
         int clause_count;
         switch (expr->bin_op) {
             case BIN_NEG:
-                codegen_expression(expr->rterm, symtab, out);
+                codegen_expression(expr->rterm, out);
                 fprintf(out, "    push %%rax\n");
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    pop %%rcx\n");
                 fprintf(out, "    subq %%rcx, %%rax\n");
                 break;
             case BIN_ADD:
-                codegen_expression(expr->rterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    push %%rax\n");
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->rterm, out);
                 fprintf(out, "    pop %%rcx\n");
                 fprintf(out, "    addq %%rcx, %%rax\n");
                 break;
             case BIN_MULTIPLY:
-                codegen_expression(expr->rterm, symtab, out);
+                codegen_expression(expr->rterm, out);
                 fprintf(out, "    push %%rax\n");
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    pop %%rcx\n");
                 fprintf(out, "    imulq %%rcx, %%rax\n");
                 break;
             case BIN_DIVIDE:
-                codegen_expression(expr->rterm, symtab, out);
+                codegen_expression(expr->rterm, out);
                 fprintf(out, "    push %%rax\n");
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    pop %%rcx\n");
                 fprintf(out, "    cqo\n");
                 fprintf(out, "    idivq %%rcx\n");
                 break;
             case BIN_MOD:
-                codegen_expression(expr->rterm, symtab, out);
+                codegen_expression(expr->rterm, out);
                 fprintf(out, "    push %%rax\n");
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    pop %%rcx\n");
                 fprintf(out, "    cqo\n");
                 fprintf(out, "    idivq %%rcx\n");
                 fprintf(out, "    movq %%rdx, %%rax\n");
                 break;
             case BIN_EQ:
-                codegen_expression(expr->rterm, symtab, out);
+                codegen_expression(expr->rterm, out);
                 fprintf(out, "    push %%rax\n");
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    pop %%rcx\n");
                 fprintf(out, "    cmpq %%rax, %%rcx\n");
                 fprintf(out, "    movq $0, %%rax\n");
                 fprintf(out, "    sete %%al\n");
                 break;
             case BIN_NEQ:
-                codegen_expression(expr->rterm, symtab, out);
+                codegen_expression(expr->rterm, out);
                 fprintf(out, "    push %%rax\n");
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    pop %%rcx\n");
                 fprintf(out, "    cmpq %%rax, %%rcx\n");
                 fprintf(out, "    movq $0, %%rax\n");
                 fprintf(out, "    setne %%al\n");
                 break;
             case BIN_LT:
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    push %%rax\n");
-                codegen_expression(expr->rterm, symtab, out);
+                codegen_expression(expr->rterm, out);
                 fprintf(out, "    pop %%rcx\n");
                 fprintf(out, "    cmpq %%rax, %%rcx\n");
                 fprintf(out, "    movq $0, %%rax\n");
                 fprintf(out, "    setl %%al\n");
                 break;
             case BIN_LTE:
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    push %%rax\n");
-                codegen_expression(expr->rterm, symtab, out);
+                codegen_expression(expr->rterm, out);
                 fprintf(out, "    pop %%rcx\n");
                 fprintf(out, "    cmpq %%rax, %%rcx\n");
                 fprintf(out, "    movq $0, %%rax\n");
                 fprintf(out, "    setle %%al\n");
                 break;
             case BIN_GT:
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    push %%rax\n");
-                codegen_expression(expr->rterm, symtab, out);
+                codegen_expression(expr->rterm, out);
                 fprintf(out, "    pop %%rcx\n");
                 fprintf(out, "    cmpq %%rax, %%rcx\n");
                 fprintf(out, "    movq $0, %%rax\n");
                 fprintf(out, "    setg %%al\n");
                 break;
             case BIN_GTE:
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    push %%rax\n");
-                codegen_expression(expr->rterm, symtab, out);
+                codegen_expression(expr->rterm, out);
                 fprintf(out, "    pop %%rcx\n");
                 fprintf(out, "    cmpq %%rax, %%rcx\n");
                 fprintf(out, "    movq $0, %%rax\n");
@@ -142,12 +141,12 @@ static void codegen_expression(Expression *expr, SymbolTable *symtab, FILE *out)
                 break;
             case BIN_AND:
                 clause_count = get_clause_count();
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    cmpq $0, %%rax\n");
                 fprintf(out, "    jne _clause%d\n", clause_count);
                 fprintf(out, "    jmp _end%d\n", clause_count);
                 fprintf(out, "_clause%d:\n", clause_count);
-                codegen_expression(expr->rterm, symtab, out);
+                codegen_expression(expr->rterm, out);
                 fprintf(out, "    cmpq $0, %%rax\n");
                 fprintf(out, "    movq $0, %%rax\n");
                 fprintf(out, "    setne %%al\n");
@@ -155,13 +154,13 @@ static void codegen_expression(Expression *expr, SymbolTable *symtab, FILE *out)
                 break;
             case BIN_OR:
                 clause_count = get_clause_count();
-                codegen_expression(expr->lterm, symtab, out);
+                codegen_expression(expr->lterm, out);
                 fprintf(out, "    cmpq $0, %%rax\n");
                 fprintf(out, "    je _clause%d\n", clause_count);
                 fprintf(out, "    movq $1, %%rax\n");
                 fprintf(out, "    jmp _end%d\n", clause_count);
                 fprintf(out, "_clause%d:\n", clause_count);
-                codegen_expression(expr->rterm, symtab, out);
+                codegen_expression(expr->rterm, out);
                 fprintf(out, "    cmpq $0, %%rax\n");
                 fprintf(out, "    movq $0, %%rax\n");
                 fprintf(out, "    setne %%al\n");
@@ -174,44 +173,34 @@ static void codegen_expression(Expression *expr, SymbolTable *symtab, FILE *out)
     }
 
     else if (expr->type == EXPR_ASS) {
-        int offset = symtab_lookup(symtab, expr->lterm->text);
-        if (offset == -1) {
-            printf("Error: Variable '%s' is not defined in this scope\n", expr->lterm->text);
-            exit(1);
-        }
-        codegen_expression(expr->rterm, symtab, out);
-        fprintf(out, "    movl %%eax, %d(%%rbp)\n", offset);
+        // validated during resolve
+        codegen_expression(expr->rterm, out);
+        fprintf(out, "    movl %%eax, %d(%%rbp)\n", expr->lterm->resolved_offset);
     }
 
     else if (expr->type == EXPR_VAR) {
-        int offset = symtab_lookup(symtab, expr->text);
-        if (offset == -1) {
-            printf("Error: Variable '%s' is not defined in this scope\n", expr->text);
-            exit(1);
-        }
-        fprintf(out, "    movl %d(%%rbp), %%eax\n", offset);
+        fprintf(out, "    movl %d(%%rbp), %%eax\n", expr->resolved_offset);
     }
 
     else if (expr->type == EXPR_TERNARY) {
         int clause_count = get_clause_count();
 
-        codegen_expression(expr->term_cond, symtab, out);
+        codegen_expression(expr->term_cond, out);
         fprintf(out, "    cmpq $0, %%rax\n");
         fprintf(out, "    je _ternary_two%d\n", clause_count);
 
-        codegen_expression(expr->term_one, symtab, out);
+        codegen_expression(expr->term_one, out);
         fprintf(out, "    jmp _ternary_end%d\n", clause_count);
 
         fprintf(out, "_ternary_two%d:\n", clause_count);
-        codegen_expression(expr->term_two, symtab, out);
+        codegen_expression(expr->term_two, out);
         fprintf(out, "_ternary_end%d:\n", clause_count);
     }
 }
 
-// symtab pass by value instead of pass by reference so local variables created in an inner scope do not exist in the outer scope
-static void codegen_statement(Statement *stmt, SymbolTable symtab, FILE *out) {
+static void codegen_statement(Statement *stmt, FILE *out) {
     if (stmt->type == STMT_RETURN) {
-        codegen_expression(stmt->expr, &symtab, out);
+        codegen_expression(stmt->expr, out);
         // epilogue
         fprintf(out, "    movq %%rbp, %%rsp\n");
         fprintf(out, "    popq %%rbp\n");
@@ -220,43 +209,32 @@ static void codegen_statement(Statement *stmt, SymbolTable symtab, FILE *out) {
     }
 
     if (stmt->type == STMT_BLOCK) {
-        symtab.scope_count = symtab.sym_count; // new scope for local variables
         BlockItem *curr = stmt->block_head;
         while (curr != NULL) {
-            codegen_block_item(curr, &symtab, out);
-            
-            if (curr->type == BLCKITEM_STMT && curr->stmt->type == STMT_RETURN) {
-                if (curr->next != NULL) {
-                    printf("Warning: Code will never be reached\n");
-                }
-                break;
-            }
-
+            codegen_block_item(curr, out);
             curr = curr->next;
         }
-        int num_bytes_deallocate = 4 * (symtab.sym_count - symtab.scope_count);
-        fprintf(out, "    addq $%d, %%rsp\n", num_bytes_deallocate);
     }
 
     else if (stmt->type == STMT_EXPR) {
-        codegen_expression(stmt->expr, &symtab, out);
+        codegen_expression(stmt->expr, out);
     }
 
     else if (stmt->type == STMT_COND) {
         int clause_count = get_clause_count();
-        codegen_expression(stmt->expr, &symtab, out);
+        codegen_expression(stmt->expr, out);
         fprintf(out, "    cmpq $0, %%rax\n");
         if (stmt->else_stmt == NULL) {
             fprintf(out, "    je _condition_end%d\n", clause_count);
         } else {
             fprintf(out, "    je _condition_else%d\n", clause_count);
         }
-        codegen_statement(stmt->if_stmt, symtab, out);
+        codegen_statement(stmt->if_stmt, out);
 
         if (stmt->else_stmt != NULL) {
             fprintf(out, "    jmp _condition_end%d\n", clause_count);
             fprintf(out, "_condition_else%d:\n", clause_count);
-            codegen_statement(stmt->else_stmt, symtab, out);
+            codegen_statement(stmt->else_stmt, out);
         }
         
         fprintf(out, "_condition_end%d:\n", clause_count);
@@ -265,37 +243,27 @@ static void codegen_statement(Statement *stmt, SymbolTable symtab, FILE *out) {
     return;
 }
 
-static void codegen_declaration(Declaration *decl, SymbolTable *symtab, FILE *out) {
+static void codegen_declaration(Declaration *decl, FILE *out) {
     if (decl->type == DECL_INT) {
-        if (symtab_lookup_in_scope(symtab, decl->name) != -1) {
-            printf("Error: variable with name %s is already defined\n", decl->name);
-            exit(1);
-        }
-
         if (decl->expr != NULL) {
-            codegen_expression(decl->expr, symtab, out);
+            codegen_expression(decl->expr, out);
         } else {
             fprintf(out, "    movl $0, %%eax\n");
         }
         
-        // fprintf(out, "    pushq %%rax\n"); cant use pushq as it stores 64 bits instead of 32
-
-        int offset = symtab_add(symtab, decl->name);
-
-        fprintf(out, "    subq $4, %%rsp\n");
-        fprintf(out, "    movl %%eax, %d(%%rbp)\n", offset);
+        fprintf(out, "    movl %%eax, %d(%%rbp)\n", decl->resolved_offset);
     }
 
     return;
 }
 
-static void codegen_block_item(BlockItem *bi, SymbolTable *symtab, FILE *out) {
+static void codegen_block_item(BlockItem *bi, FILE *out) {
     if (bi->type == BLCKITEM_STMT) {
-        codegen_statement(bi->stmt, *symtab, out);
+        codegen_statement(bi->stmt, out);
     }
 
     else if (bi->type == BLCKITEM_DECL) {
-        codegen_declaration(bi->decl, symtab, out);
+        codegen_declaration(bi->decl, out);
     }
 
     return;
@@ -308,11 +276,12 @@ static void codegen_function(Function *fnctn, FILE *out) {
     // prologue
     fprintf(out, "    pushq %%rbp\n");
     fprintf(out, "    movq %%rsp, %%rbp\n");
+    
+    if (fnctn->frame_size > 0) {
+        fprintf(out, "    subq $%d, %%rsp\n", fnctn->frame_size);
+    }
 
-    SymbolTable symtab;
-    symtab_initialize(&symtab);
-
-    codegen_statement(fnctn->stmt, symtab, out);
+    codegen_statement(fnctn->stmt, out);
 
     if (strcmp(fnctn->name, "main") == 0) {
         // safety incase no return was specified
