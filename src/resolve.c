@@ -124,13 +124,13 @@ static void resolve_expression(Expression *expr, SymbolTable *symtab) {
 
 // symtab pass by value instead of pass by reference so local variables created in an inner scope do not exist in the outer scope
 static void resolve_statement(Statement *stmt, SymbolTable symtab) {
+    symtab.scope_count = symtab.sym_count; // new scope for local variables
     if (stmt->type == STMT_RETURN) {
         resolve_expression(stmt->expr, &symtab);
         return;
     }
 
     if (stmt->type == STMT_BLOCK) {
-        symtab.scope_count = symtab.sym_count; // new scope for local variables
         BlockItem *curr = stmt->block_head;
         while (curr != NULL) {
             resolve_block_item(curr, &symtab);
@@ -156,6 +156,22 @@ static void resolve_statement(Statement *stmt, SymbolTable symtab) {
         if (stmt->else_stmt != NULL) {
             resolve_statement(stmt->else_stmt, symtab);
         }   
+    }
+
+    else if (stmt->type == STMT_FOR) {
+        if (stmt->init != NULL) {
+            resolve_block_item(stmt->init, &symtab);
+        }
+
+        if (stmt->cond != NULL) {
+            resolve_expression(stmt->cond, &symtab);
+        }
+
+        resolve_statement(stmt->loop_stmt, symtab);
+
+        if (stmt->post != NULL) {
+            resolve_expression(stmt->post, &symtab);
+        }
     }
 
     else if (stmt->type == STMT_WHILE) {

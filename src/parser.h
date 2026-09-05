@@ -13,6 +13,7 @@ typedef enum STMT_TYPE {
     STMT_RETURN,
     STMT_EXPR,
     STMT_COND,
+    STMT_FOR,
     STMT_WHILE,
     STMT_DO_WHILE,
     STMT_BREAK,
@@ -81,13 +82,20 @@ typedef struct Expression { // TODO: Add a union to reduce memory usage
 
 typedef struct Statement {
     STMT_TYPE type;
-    Expression *expr;
+    union {
+        struct Expression *expr;
+        struct Expression *cond;
+    };
     union {                             // occupy same memory since will not be used at the same time
         struct BlockItem *block_head;   // type STMT_BLOCK
         struct Statement *if_stmt;      // type STMT_COND
-        struct Statement *loop_stmt;      // type STMT_COND
+        struct Statement *loop_stmt;      // type Loops
     };
-    struct Statement *else_stmt;
+    struct BlockItem *init;
+    union {
+        struct Statement *else_stmt;
+        struct Expression *post;
+    };
 } Statement;
 
 typedef struct Declaration {

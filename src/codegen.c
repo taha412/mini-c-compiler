@@ -240,6 +240,31 @@ static void codegen_statement(Statement *stmt, FILE *out) {
         fprintf(out, "_condition_end%d:\n", clause_count);
     }
 
+    else if (stmt->type == STMT_FOR) {
+        int clause_count = get_clause_count();
+        if (stmt->init != NULL) {
+            codegen_block_item(stmt->init, out);
+        }
+
+        fprintf(out, "_for_loop%d:\n", clause_count);
+
+        if (stmt->cond != NULL) {
+            codegen_expression(stmt->cond, out);
+            fprintf(out, "    cmpq $0, %%rax\n");
+            fprintf(out, "    je _loop_end%d\n", clause_count);
+        }
+
+        codegen_statement(stmt->loop_stmt, out);
+
+        if (stmt->post != NULL) {
+            codegen_expression(stmt->post, out);
+        }
+        fprintf(out, "    jmp _for_loop%d\n", clause_count);
+        fprintf(out, "_loop_end%d:\n", clause_count);
+        return;
+        
+    }
+
     else if (stmt->type == STMT_WHILE) {
         int clause_count = get_clause_count();
         fprintf(out, "_while%d:\n", clause_count);

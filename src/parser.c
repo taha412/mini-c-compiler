@@ -9,6 +9,7 @@
 
 static Expression *parse_expression(Parser *parser);
 static Statement *parse_statement_block(Parser *parser);
+static BlockItem *parse_block_item(Parser *parser);
 
 static char *unop_to_text(UNARY_OP symb) {
     switch (symb) {
@@ -315,8 +316,42 @@ static Statement *parse_statement(Parser *parser) {
     }
 
     else if (parser->curr_token.type == TOK_FOR) {
-        //TODO
-    }
+        Statement *s = (Statement *) calloc(1, sizeof(Statement));
+        s->type = STMT_FOR;
+        advance(parser);
+
+        expect(parser, TOK_OPAREN);
+
+        if (parser->curr_token.type != TOK_SEMI) {
+            s->init = parse_block_item(parser);
+            // error check only works as long as BlockItem can only be a declaration or a statement
+            // since it uses short-circuiting in the && operator
+            if (s->init->type != BLCKITEM_DECL && s->init->stmt->type != STMT_EXPR) { 
+                printf("Error: For loop initialization can only be an expression or declaration");
+                exit(1);
+            }
+        } else {
+            s->init = NULL;
+            expect(parser, TOK_SEMI);
+        }
+
+        if (parser->curr_token.type != TOK_SEMI) {
+            s->cond = parse_expression(parser);
+        } else {
+            s->cond = NULL;
+        }
+        expect(parser, TOK_SEMI);
+
+        if (parser->curr_token.type != TOK_CPAREN) {
+            s->post = parse_expression(parser);
+        } else {
+            s->post = NULL;
+        }
+        expect(parser, TOK_CPAREN);
+
+        s->loop_stmt = parse_statement(parser);
+        return s;
+    }   
 
     else if (parser->curr_token.type == TOK_WHILE) {
         Statement *s = (Statement *) calloc(1, sizeof(Statement));
@@ -350,12 +385,16 @@ static Statement *parse_statement(Parser *parser) {
     else if (parser->curr_token.type == TOK_CONT) {
         Statement *s = (Statement *) calloc(1, sizeof(Statement));
         s->type = STMT_CONT;
+        advance(parser);
+        expect(parser, TOK_SEMI);
         return s;
     }
 
     else if (parser->curr_token.type == TOK_BREAK) {
         Statement *s = (Statement *) calloc(1, sizeof(Statement));
         s->type = STMT_BREAK;
+        advance(parser);
+        expect(parser, TOK_SEMI);
         return s;
     }
 
@@ -532,12 +571,16 @@ void print_declaration(Declaration *decl, int level) {
     }
 }
 
-void print_block_item(BlockItem *bi, int level) {
+void print_block_item_helper(BlockItem *bi, int level) {
     if (bi->type == BLCKITEM_STMT) {
         print_statement(bi->stmt, level);
     } else {
         print_declaration(bi->decl, level);
     }
+}
+
+void print_block_item(BlockItem *bi, int level) {
+    print_block_item_helper(bi, level);
     printf("\n");
     if (bi->next != NULL) {
         print_block_item(bi->next, level);
@@ -573,6 +616,22 @@ void print_statement(Statement *stmt, int level) {
                 print_statement(stmt->else_stmt, level+1);
                 printf("\n");
             }
+            break;
+        case STMT_FOR:
+            printf("FOR ( ");
+            if (stmt->init != NULL) {
+                print_block_item_helper(stmt->init, 0);
+            }
+            printf(" ; ");
+            if (stmt->cond != NULL) {
+                print_expression(stmt->cond, 0);
+            }
+            printf(" ; ");
+            if (stmt->post != NULL) {
+                print_expression(stmt->post, 0);
+            }
+            printf(" )\n");
+            print_statement(stmt->loop_stmt, level+1);
             break;
         case STMT_WHILE:
             printf("WHILE ( ");
