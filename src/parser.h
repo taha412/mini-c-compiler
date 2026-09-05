@@ -11,9 +11,12 @@ typedef enum BLCKITEM_TYPE {
 typedef enum STMT_TYPE {
     STMT_BLOCK,
     STMT_RETURN,
-    // STMT_DECLARE,
     STMT_EXPR,
-    STMT_COND
+    STMT_COND,
+    STMT_WHILE,
+    STMT_DO_WHILE,
+    STMT_BREAK,
+    STMT_CONT
 } STMT_TYPE;
 
 typedef enum DECL_TYPE {
@@ -82,6 +85,7 @@ typedef struct Statement {
     union {                             // occupy same memory since will not be used at the same time
         struct BlockItem *block_head;   // type STMT_BLOCK
         struct Statement *if_stmt;      // type STMT_COND
+        struct Statement *loop_stmt;      // type STMT_COND
     };
     struct Statement *else_stmt;
 } Statement;

@@ -240,6 +240,43 @@ static void codegen_statement(Statement *stmt, FILE *out) {
         fprintf(out, "_condition_end%d:\n", clause_count);
     }
 
+    else if (stmt->type == STMT_WHILE) {
+        int clause_count = get_clause_count();
+        fprintf(out, "_while%d:\n", clause_count);
+
+        codegen_expression(stmt->expr, out);
+        fprintf(out, "    cmpq $0, %%rax\n");
+        fprintf(out, "    je _loop_end%d\n", clause_count);
+
+        codegen_statement(stmt->loop_stmt, out);
+
+        fprintf(out, "    jmp _while%d\n", clause_count);
+        fprintf(out, "_loop_end%d:\n", clause_count);
+    }
+
+    else if (stmt->type == STMT_DO_WHILE) {
+        int clause_count = get_clause_count();
+        fprintf(out, "_do_while%d:\n", clause_count);
+
+        codegen_statement(stmt->loop_stmt, out);
+
+        codegen_expression(stmt->expr, out);
+        fprintf(out, "    cmpq $0, %%rax\n");
+        fprintf(out, "    jne _do_while%d\n", clause_count);
+        fprintf(out, "_loop_end%d:\n", clause_count);
+        return;
+    }
+
+    else if (stmt->type == STMT_CONT) {
+        // TODO
+        return;
+    }
+
+    else if (stmt->type == STMT_BREAK) {
+        // TODO
+        return;
+    }
+
     return;
 }
 

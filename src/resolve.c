@@ -157,6 +157,28 @@ static void resolve_statement(Statement *stmt, SymbolTable symtab) {
             resolve_statement(stmt->else_stmt, symtab);
         }   
     }
+
+    else if (stmt->type == STMT_WHILE) {
+        resolve_expression(stmt->expr, &symtab);
+        resolve_statement(stmt->loop_stmt, symtab);
+    }
+
+    else if (stmt->type == STMT_DO_WHILE) {
+        resolve_statement(stmt->loop_stmt, symtab);
+        resolve_expression(stmt->expr, &symtab);
+        return;
+    }
+
+    else if (stmt->type == STMT_CONT) {
+        //TODO
+        return;
+    }
+
+    else if (stmt->type == STMT_BREAK) {
+        //TODO
+        return;
+    }
+
     return;
 }
 

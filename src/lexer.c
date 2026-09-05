@@ -40,6 +40,11 @@ const char* token_type_to_string(TokenType type) {
         case TOK_ELSE:          return "ELSE";
         case TOK_COLON:         return "COLON";
         case TOK_QMARK:         return "QMARK";
+        case TOK_FOR:           return "FOR";
+        case TOK_DO:            return "DO";
+        case TOK_WHILE:         return "WHILE";
+        case TOK_BREAK:         return "BREAK";
+        case TOK_CONT:          return "CONT";
         default:                return "UNKNOWN";
     }
 }
@@ -196,6 +201,21 @@ Token next_token(Lexer *lexer) {
         } 
         else if (strcmp(t.text, "else") == 0) {
             t.type = TOK_ELSE;
+        }
+        else if (strcmp(t.text, "for") == 0) {
+            t.type = TOK_FOR;
+        }
+        else if (strcmp(t.text, "while") == 0) {
+            t.type = TOK_WHILE;
+        }
+        else if (strcmp(t.text, "do") == 0) {
+            t.type = TOK_DO;
+        }
+        else if (strcmp(t.text, "break") == 0) {
+            t.type = TOK_BREAK;
+        }
+        else if (strcmp(t.text, "continue") == 0) {
+            t.type = TOK_CONT;
         }
         else {
             t.type = TOK_IDENTIFIER;

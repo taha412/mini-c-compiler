@@ -39,7 +39,12 @@ typedef enum TokenType {
     TOK_IF,
     TOK_ELSE,
     TOK_COLON,
-    TOK_QMARK
+    TOK_QMARK,
+    TOK_FOR,
+    TOK_DO,
+    TOK_WHILE,
+    TOK_BREAK,
+    TOK_CONT
 } TokenType;
 
 typedef struct Token {

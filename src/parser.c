@@ -314,12 +314,58 @@ static Statement *parse_statement(Parser *parser) {
         return s;
     }
 
+    else if (parser->curr_token.type == TOK_FOR) {
+        //TODO
+    }
+
+    else if (parser->curr_token.type == TOK_WHILE) {
+        Statement *s = (Statement *) calloc(1, sizeof(Statement));
+        s->type = STMT_WHILE;
+        advance(parser);
+        
+        expect(parser, TOK_OPAREN);
+        s->expr = parse_expression(parser);
+        expect(parser, TOK_CPAREN);
+
+        s->loop_stmt = parse_statement(parser);
+        return s;
+    }
+
+    else if (parser->curr_token.type == TOK_DO) {
+        Statement *s = (Statement *) calloc(1, sizeof(Statement));
+        s->type = STMT_DO_WHILE;
+        advance(parser);
+
+        s->loop_stmt = parse_statement(parser);
+
+        expect(parser, TOK_WHILE);
+        expect(parser, TOK_OPAREN);
+        s->expr = parse_expression(parser);
+        expect(parser, TOK_CPAREN);
+        expect(parser, TOK_SEMI);
+
+        return s;
+    }
+
+    else if (parser->curr_token.type == TOK_CONT) {
+        Statement *s = (Statement *) calloc(1, sizeof(Statement));
+        s->type = STMT_CONT;
+        return s;
+    }
+
+    else if (parser->curr_token.type == TOK_BREAK) {
+        Statement *s = (Statement *) calloc(1, sizeof(Statement));
+        s->type = STMT_BREAK;
+        return s;
+    }
+
     // try to parse it as an expression
     Statement *s = (Statement *) calloc(1, sizeof(Statement));
     s->type = STMT_EXPR;
     s->expr = parse_expression(parser);
     expect(parser, TOK_SEMI);
     return s;
+
 }
 
 static Declaration *parse_declaration(Parser *parser) {
@@ -510,7 +556,7 @@ void print_statement(Statement *stmt, int level) {
             printf("BEGIN BLOCK\n");
             print_block_item(stmt->block_head, level+1);
             print_indent(level);
-            printf("BLOCK END\n");
+            printf("BLOCK END");
             break;
         case STMT_EXPR:
             print_expression(stmt->expr, 0);
@@ -528,6 +574,21 @@ void print_statement(Statement *stmt, int level) {
                 printf("\n");
             }
             break;
+        case STMT_WHILE:
+            printf("WHILE ( ");
+            print_expression(stmt->expr, 0);
+            printf(" )\n");
+            print_statement(stmt->loop_stmt, level+1);
+            break;
+        case STMT_DO_WHILE:
+            printf("DO\n");
+            print_statement(stmt->loop_stmt, level+1);
+            printf("\n");
+            print_indent(level);
+            printf("WHILE (");
+            print_expression(stmt->expr, 0);
+            printf(" )");
+            break;
         default:
             printf("Unknown Statement.\n");
     }
@@ -543,4 +604,5 @@ void print_program(Program *prog, int level) {
     print_indent(level);
     printf("Program\n");
     print_function(prog->fnctn, level+1);
+    printf("\n");
 }
