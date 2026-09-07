@@ -45,6 +45,8 @@ const char* token_type_to_string(TokenType type) {
         case TOK_WHILE:         return "WHILE";
         case TOK_BREAK:         return "BREAK";
         case TOK_CONT:          return "CONT";
+        case TOK_COMMA:         return "COMMA";
+        case TOK_VOID:          return "VOID";
         default:                return "UNKNOWN";
     }
 }
@@ -178,6 +180,10 @@ Token next_token(Lexer *lexer) {
         lexer->pos++;
         t.type = TOK_QMARK;
     }
+    else if (lexer->source[lexer->pos] == ',') {
+        lexer->pos++;
+        t.type = TOK_COMMA;
+    }
     // look for words
     else if (isalpha((unsigned char) lexer->source[lexer->pos]) || lexer->source[lexer->pos] == '_') {
         int text_pos = 0;
@@ -216,6 +222,9 @@ Token next_token(Lexer *lexer) {
         }
         else if (strcmp(t.text, "continue") == 0) {
             t.type = TOK_CONT;
+        }
+        else if (strcmp(t.text, "void") == 0) {
+            t.type = TOK_VOID;
         }
         else {
             t.type = TOK_IDENTIFIER;

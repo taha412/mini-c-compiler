@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "resolve.h"
 #include "symtab.h"
@@ -202,7 +203,7 @@ static void resolve_statement(Statement *stmt, SymbolTable symtab) {
 
     else if (stmt->type == STMT_CONT) {
         if (symtab.scope_clause_count == -1) {
-            printf("Error: Can not use continue outside of a loop");
+            printf("Error: Can not use continue outside of a loop\n");
             exit(1);
         }
         stmt->clause_count = symtab.scope_clause_count;
@@ -211,7 +212,7 @@ static void resolve_statement(Statement *stmt, SymbolTable symtab) {
 
     else if (stmt->type == STMT_BREAK) {
         if (symtab.scope_clause_count == -1) {
-            printf("Error: Can not use break outside of a loop");
+            printf("Error: Can not use break outside of a loop\n");
             exit(1);
         }
         stmt->clause_count = symtab.scope_clause_count;
@@ -265,6 +266,65 @@ static void resolve_function(Function *fnctn) {
     fnctn->frame_size = (largest_offset + 15) & ~15;
 }
 
+static void resolve_top_lvl_item(TopLevelItem *tpi) {
+    if (tpi->type == TOPLVL_FNCTN) {
+        if (tpi->fnctn->stmt != NULL) { // TODO: Maybe move null check to resolve_function
+            resolve_function(tpi->fnctn);
+        }
+    }
+}
+
+// look away
+// TODO: improve from O(n^2)   :(
+static void verify_func_declarations(TopLevelItem *tli) {
+    TopLevelItem *i1 = tli;
+    TopLevelItem *i2 = tli;
+    while (i1 != NULL) {
+        if (i1->type == TOPLVL_FNCTN) {
+            i2 = i1->next;
+            while (i2 != NULL) {
+                if (i2->type == TOPLVL_FNCTN) {
+                    if (strcmp(i1->fnctn->name, i2->fnctn->name) == 0) {
+                        if (i1->fnctn->stmt != NULL && i2->fnctn->stmt != NULL) {
+                            printf("Error: Function '%s' has multiple definitions\n", i1->fnctn->name);
+                            exit(1);
+                        }
+
+                        if (i1->fnctn->para_count != i2->fnctn->para_count) {
+                            printf("Error: Function '%s' declaration parameters do not match definition\n", i1->fnctn->name);
+                            exit(1);
+                        }
+
+                        if (i1->fnctn->return_type != i2->fnctn->return_type) {
+                            printf("Error: Function '%s' return types do not match between definitions\n", i1->fnctn->name);
+                            exit(1);
+                        }
+
+                        Parameter *p1 = i1->fnctn->para;
+                        Parameter *p2 = i2->fnctn->para;
+                        while (p1 != NULL && p2 != NULL) {
+                            if (p1->type != p2->type) {
+                                printf("Error: Function '%s' declaration parameters do not match definition\n", i1->fnctn->name);
+                                exit(1);
+                            }
+                            p1 = p1->next;
+                            p2 = p2->next;
+                        }
+                    }
+                }
+                i2 = i2->next;
+            }
+        }
+        i1 = i1->next;
+    }
+}
+
 void resolve_code(Program *prog) {
-    resolve_function(prog->fnctn);
+    verify_func_declarations(prog->top);
+    TopLevelItem *curr = prog->top;
+    
+    while (curr != NULL) {
+        resolve_top_lvl_item(curr);
+        curr = curr->next;
+    }
 }

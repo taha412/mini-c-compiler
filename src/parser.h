@@ -31,8 +31,13 @@ typedef enum EXPR_TYPE {
     EXPR_CONST,
     EXPR_ASS,
     EXPR_VAR,
-    EXPR_TERNARY
+    EXPR_TERNARY,
+    EXPR_FUNC
 } EXPR_TYPE;
+
+typedef enum TOP_LVL_TYPE {
+    TOPLVL_FNCTN
+} TOP_LVL_TYPE;
 
 typedef enum UNARY_OP {
     OP_NEG,
@@ -118,14 +123,30 @@ typedef struct BlockItem {
     struct BlockItem *next;
 } BlockItem;
 
+typedef struct Parameter {
+    DECL_TYPE type;
+    char name[64];
+    int resolved_offset;
+    struct Parameter *next;
+} Parameter;
+
 typedef struct Function {
     char name[64];
+    DECL_TYPE return_type;
     Statement *stmt;
     int frame_size;
+    int para_count;
+    Parameter *para;
 } Function;
 
-typedef struct Program {
+typedef struct TopLevelItem {
+    TOP_LVL_TYPE type;
     Function *fnctn;
+    struct TopLevelItem *next;
+} TopLevelItem;
+
+typedef struct Program {
+    TopLevelItem *top;
 } Program;
 
 Program *parse_program(Parser *parser);

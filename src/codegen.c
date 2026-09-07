@@ -337,15 +337,26 @@ static void codegen_function(Function *fnctn, FILE *out) {
 
     codegen_statement(fnctn->stmt, out);
 
-    if (strcmp(fnctn->name, "main") == 0) {
-        // safety incase no return was specified
-        fprintf(out, "    movq %%rbp, %%rsp\n");
-        fprintf(out, "    popq %%rbp\n");
-        fprintf(out, "    movl $0, %%eax\n");
-        fprintf(out, "    ret\n");
+    // safety incase no return was specified
+    fprintf(out, "    movl $0, %%eax\n");
+    fprintf(out, "    movq %%rbp, %%rsp\n");
+    fprintf(out, "    popq %%rbp\n");
+    fprintf(out, "    ret\n");
+}
+
+static void codegen_top_lvl_item(TopLevelItem *tpi, FILE *out) {
+    if (tpi->type == TOPLVL_FNCTN) {
+        if (tpi->fnctn->stmt != NULL) {
+            codegen_function(tpi->fnctn, out);
+        }
     }
 }
 
 void generate_code(Program *prog, FILE *out) {
-    codegen_function(prog->fnctn, out);
+    TopLevelItem *curr = prog->top;
+    
+    while (curr != NULL) {
+        codegen_top_lvl_item(curr, out);
+        curr = curr->next;
+    }
 }
