@@ -14,6 +14,21 @@ typedef struct SymbolTable {
     int scope_clause_count;
 } SymbolTable;
 
+typedef enum GLOBAL_TYPE {
+    GLOB_FUNC
+} GLOBAL_TYPE;
+
+typedef struct GlobalSymbol {
+    GLOBAL_TYPE type;
+    char name[64];
+    int num_params;
+    GlobalSymbol *next;
+} GlobalSymbol;
+
+typedef struct GlobalEnv {
+
+} GlobalEnv;
+
 void symtab_initialize(SymbolTable *symtab);
 int symtab_add(SymbolTable *symtab, char *name);
 int symtab_lookup(SymbolTable *symtab, char* name);
