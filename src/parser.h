@@ -21,9 +21,10 @@ typedef enum STMT_TYPE {
     STMT_NULL
 } STMT_TYPE;
 
-typedef enum DECL_TYPE {
-    DECL_INT
-} DECL_TYPE;
+typedef enum DataType {
+    DATA_INT,
+    DATA_VOID
+} DataType;
 
 typedef enum EXPR_TYPE {
     EXPR_BINOP,
@@ -70,6 +71,7 @@ typedef struct Parser {
 
 typedef struct Expression { // TODO: Add a union to reduce memory usage
     EXPR_TYPE type;
+    DataType data_type;
     union {
         struct Expression *lterm;
         struct Expression *term_cond;
@@ -107,7 +109,7 @@ typedef struct Statement {
 } Statement;
 
 typedef struct Declaration {
-    DECL_TYPE type;
+    DataType data_type;
     char name[64];
     Expression *expr;
     int resolved_offset;
@@ -124,7 +126,7 @@ typedef struct BlockItem {
 } BlockItem;
 
 typedef struct Parameter {
-    DECL_TYPE type;
+    DataType data_type;
     char name[64];
     int resolved_offset;
     struct Parameter *next;
@@ -132,7 +134,7 @@ typedef struct Parameter {
 
 typedef struct Function {
     char name[64];
-    DECL_TYPE return_type;
+    DataType return_type;
     Statement *stmt;
     int frame_size;
     int para_count;

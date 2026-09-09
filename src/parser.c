@@ -422,7 +422,7 @@ static Statement *parse_statement(Parser *parser) {
 static Declaration *parse_declaration(Parser *parser) {
     if (parser->curr_token.type == TOK_KEYW_INT) { // safety
         Declaration *d = (Declaration *) calloc(1, sizeof(Declaration));
-        d->type = DECL_INT;
+        d->data_type = DATA_INT;
         advance(parser);
         if (parser->curr_token.type != TOK_IDENTIFIER) {
             printf("Error: Invalid variable name.");
@@ -504,7 +504,7 @@ static Parameter *parse_parameters(Parser *parser, int *para_count) {
             }
 
             Parameter *para = (Parameter *) calloc(1, sizeof(Parameter));
-            para->type = DECL_INT; // change later to accept multiple types
+            para->data_type = DATA_INT; // change later to accept multiple types
             strncpy(para->name, parser->curr_token.text, 63);
             para->name[63] = '\0'; // for safety
 
@@ -648,7 +648,7 @@ void print_expression(Expression *expr, int level) {
 
 void print_declaration(Declaration *decl, int level) {
     print_indent(level);
-    if (decl->type == DECL_INT) {
+    if (decl->data_type == DATA_INT) {
         printf("int %s", decl->name);
         if (decl->expr != NULL) {
             printf(" = ");

@@ -3,6 +3,7 @@
 
 typedef struct Symbol {
     char name[64];
+    DataType data_type;
     int offset;
 } Symbol;
 
@@ -22,7 +23,7 @@ typedef struct GlobalSymbol {
     GLOBAL_TYPE type;
     char name[64];
     int num_params;
-    GlobalSymbol *next;
+    struct GlobalSymbol *next;
 } GlobalSymbol;
 
 typedef struct GlobalEnv {

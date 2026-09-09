@@ -298,7 +298,7 @@ static void codegen_statement(Statement *stmt, FILE *out) {
 }
 
 static void codegen_declaration(Declaration *decl, FILE *out) {
-    if (decl->type == DECL_INT) {
+    if (decl->data_type == DATA_INT) {
         if (decl->expr != NULL) {
             codegen_expression(decl->expr, out);
         } else {

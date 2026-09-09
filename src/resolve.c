@@ -227,7 +227,7 @@ static void resolve_statement(Statement *stmt, SymbolTable symtab) {
 }
 
 static void resolve_declaration(Declaration *decl, SymbolTable *symtab) {
-    if (decl->type == DECL_INT) {
+    if (decl->data_type == DATA_INT) {
         if (symtab_lookup_in_scope(symtab, decl->name) != -1) {
             printf("Error: variable with name %s is already defined\n", decl->name);
             exit(1);
@@ -303,7 +303,7 @@ static void verify_func_declarations(TopLevelItem *tli) {
                         Parameter *p1 = i1->fnctn->para;
                         Parameter *p2 = i2->fnctn->para;
                         while (p1 != NULL && p2 != NULL) {
-                            if (p1->type != p2->type) {
+                            if (p1->data_type != p2->data_type) {
                                 printf("Error: Function '%s' declaration parameters do not match definition\n", i1->fnctn->name);
                                 exit(1);
                             }
