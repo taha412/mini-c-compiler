@@ -22,9 +22,9 @@ int main(int argc, char** args) {
 
     Program *ast = parse_program(&parser);
 
-    printf("--- AST ---\n");
-    print_program(ast, 0);
-    printf("-----------\n");
+    // printf("--- AST ---\n");
+    // print_program(ast, 0);
+    // printf("-----------\n");
 
     FILE *out = fopen("output.s", "w");
     if (!out) {
@@ -41,7 +41,7 @@ int main(int argc, char** args) {
 
     free(code);
 
-    printf("Successfully generated assemply: output.s!\n");
+    // printf("Successfully generated assemply: output.s!\n");
 
     return 0;
 }

@@ -44,7 +44,9 @@ typedef enum TokenType {
     TOK_DO,
     TOK_WHILE,
     TOK_BREAK,
-    TOK_CONT
+    TOK_CONT,
+    TOK_COMMA,
+    TOK_VOID
 } TokenType;
 
 typedef struct Token {

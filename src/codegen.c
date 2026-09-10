@@ -5,6 +5,15 @@
 #include "parser.h"
 #include "codegen.h"
 
+static const char *arg_regs[] = {
+    "%edi",
+    "%esi",
+    "%edx",
+    "%ecx",
+    "%r8d",
+    "%r9d"
+};
+
 static void codegen_expression(Expression *expr, FILE *out);
 static void codegen_statement(Statement *stmt, FILE *out);
 static void codegen_declaration(Declaration *decl, FILE *out);
@@ -185,6 +194,26 @@ static void codegen_expression(Expression *expr, FILE *out) {
         codegen_expression(expr->term_two, out);
         fprintf(out, ".L_ternary_end_%d:\n", expr->clause_count);
     }
+
+    else if (expr->type == EXPR_CALL) {
+        Argument *curr_a = expr->args;
+
+        // Need to put arguments into their own places in memory first otherwise an argument that is a function call
+        // will overwrite the registers, since they are caller saved
+        // so we temorarily store them in the stack frame
+        for (int i = 0; curr_a != NULL && i < 6; curr_a = curr_a->next, i++) {
+            codegen_expression(curr_a->expr, out);
+            fprintf(out, "    movl %%eax, %d(%%rbp)\n", curr_a->resolved_offset);
+        }
+
+        //TODO Add more than 6 arguments
+        curr_a = expr->args;
+        for (int i = 0; curr_a != NULL && i < 6; curr_a = curr_a->next, i++) {
+            fprintf(out, "    movl %d(%%rbp), %s\n", curr_a->resolved_offset, arg_regs[i]);
+        }
+
+        fprintf(out, "    call %s\n", expr->text);
+    }
 }
 
 static void codegen_statement(Statement *stmt, FILE *out) {
@@ -298,7 +327,7 @@ static void codegen_statement(Statement *stmt, FILE *out) {
 }
 
 static void codegen_declaration(Declaration *decl, FILE *out) {
-    if (decl->type == DECL_INT) {
+    if (decl->data_type == DATA_INT) {
         if (decl->expr != NULL) {
             codegen_expression(decl->expr, out);
         } else {
@@ -330,22 +359,40 @@ static void codegen_function(Function *fnctn, FILE *out) {
     // prologue
     fprintf(out, "    pushq %%rbp\n");
     fprintf(out, "    movq %%rsp, %%rbp\n");
-    
+
     if (fnctn->frame_size > 0) {
         fprintf(out, "    subq $%d, %%rsp\n", fnctn->frame_size);
     }
+    
+    Parameter *curr_p = fnctn->para;
+    for (int i = 0; curr_p != NULL && i < 6; curr_p = curr_p->next, i++) {
+        fprintf(out, "    movl %s, %d(%%rbp)\n", arg_regs[i], curr_p->resolved_offset);
+    }
+
+    // TODO : Add more than 6 params
 
     codegen_statement(fnctn->stmt, out);
 
-    if (strcmp(fnctn->name, "main") == 0) {
-        // safety incase no return was specified
-        fprintf(out, "    movq %%rbp, %%rsp\n");
-        fprintf(out, "    popq %%rbp\n");
-        fprintf(out, "    movl $0, %%eax\n");
-        fprintf(out, "    ret\n");
+    // safety incase no return was specified
+    fprintf(out, "    movl $0, %%eax\n");
+    fprintf(out, "    movq %%rbp, %%rsp\n");
+    fprintf(out, "    popq %%rbp\n");
+    fprintf(out, "    ret\n");
+}
+
+static void codegen_top_lvl_item(TopLevelItem *tpi, FILE *out) {
+    if (tpi->type == TOPLVL_FNCTN) {
+        if (tpi->fnctn->stmt != NULL) {
+            codegen_function(tpi->fnctn, out);
+        }
     }
 }
 
 void generate_code(Program *prog, FILE *out) {
-    codegen_function(prog->fnctn, out);
+    TopLevelItem *curr = prog->top;
+    
+    while (curr != NULL) {
+        codegen_top_lvl_item(curr, out);
+        curr = curr->next;
+    }
 }
