@@ -189,7 +189,7 @@ Token next_token(Lexer *lexer) {
         int text_pos = 0;
 
         // get word into t.text
-        while ((isalnum(lexer->source[lexer->pos]) || lexer->source[lexer->pos] == '_') && text_pos < 63) {
+        while ((isalnum((unsigned char) lexer->source[lexer->pos]) || lexer->source[lexer->pos] == '_') && text_pos < 63) {
             t.text[text_pos] = lexer->source[lexer->pos];
             text_pos++;
             lexer->pos++;
