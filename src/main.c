@@ -4,7 +4,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "codegen.h"
-#include "resolve.h"
+#include "semantic.h"
 
 int main(int argc, char** args) {
     if (argc < 2) {
