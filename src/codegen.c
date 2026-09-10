@@ -29,16 +29,16 @@ static void codegen_expression(Expression *expr, FILE *out) {
         switch (expr->un_op) {
             case OP_NEG:
                 codegen_expression(expr->lterm, out);
-                fprintf(out, "    neg %%rax\n");
+                fprintf(out, "    neg %%eax\n");
                 break;
             case OP_COMPL:
                 codegen_expression(expr->lterm, out);
-                fprintf(out, "    not %%rax\n");
+                fprintf(out, "    not %%eax\n");
                 break;
             case OP_NOT:
                 codegen_expression(expr->lterm, out);
-                fprintf(out, "    cmpq $0, %%rax\n");
-                fprintf(out, "    movq $0, %%rax\n");
+                fprintf(out, "    cmpl $0, %%eax\n");
+                fprintf(out, "    movl $0, %%eax\n");
                 fprintf(out, "    sete %%al\n");
                 break;
             default:
@@ -54,46 +54,46 @@ static void codegen_expression(Expression *expr, FILE *out) {
                 fprintf(out, "    push %%rax\n");
                 codegen_expression(expr->lterm, out);
                 fprintf(out, "    pop %%rcx\n");
-                fprintf(out, "    subq %%rcx, %%rax\n");
+                fprintf(out, "    subl %%ecx, %%eax\n");
                 break;
             case BIN_ADD:
                 codegen_expression(expr->lterm, out);
                 fprintf(out, "    push %%rax\n");
                 codegen_expression(expr->rterm, out);
                 fprintf(out, "    pop %%rcx\n");
-                fprintf(out, "    addq %%rcx, %%rax\n");
+                fprintf(out, "    addl %%ecx, %%eax\n");
                 break;
             case BIN_MULTIPLY:
                 codegen_expression(expr->rterm, out);
                 fprintf(out, "    push %%rax\n");
                 codegen_expression(expr->lterm, out);
                 fprintf(out, "    pop %%rcx\n");
-                fprintf(out, "    imulq %%rcx, %%rax\n");
+                fprintf(out, "    imull %%ecx, %%eax\n");
                 break;
             case BIN_DIVIDE:
                 codegen_expression(expr->rterm, out);
                 fprintf(out, "    push %%rax\n");
                 codegen_expression(expr->lterm, out);
                 fprintf(out, "    pop %%rcx\n");
-                fprintf(out, "    cqo\n");
-                fprintf(out, "    idivq %%rcx\n");
+                fprintf(out, "    cltd\n");
+                fprintf(out, "    idivl %%ecx\n");
                 break;
             case BIN_MOD:
                 codegen_expression(expr->rterm, out);
                 fprintf(out, "    push %%rax\n");
                 codegen_expression(expr->lterm, out);
                 fprintf(out, "    pop %%rcx\n");
-                fprintf(out, "    cqo\n");
-                fprintf(out, "    idivq %%rcx\n");
-                fprintf(out, "    movq %%rdx, %%rax\n");
+                fprintf(out, "    cltd\n");
+                fprintf(out, "    idivl %%ecx\n");
+                fprintf(out, "    movl %%edx, %%eax\n");
                 break;
             case BIN_EQ:
                 codegen_expression(expr->rterm, out);
                 fprintf(out, "    push %%rax\n");
                 codegen_expression(expr->lterm, out);
                 fprintf(out, "    pop %%rcx\n");
-                fprintf(out, "    cmpq %%rax, %%rcx\n");
-                fprintf(out, "    movq $0, %%rax\n");
+                fprintf(out, "    cmpl %%eax, %%ecx\n");
+                fprintf(out, "    movl $0, %%eax\n");
                 fprintf(out, "    sete %%al\n");
                 break;
             case BIN_NEQ:
@@ -101,8 +101,8 @@ static void codegen_expression(Expression *expr, FILE *out) {
                 fprintf(out, "    push %%rax\n");
                 codegen_expression(expr->lterm, out);
                 fprintf(out, "    pop %%rcx\n");
-                fprintf(out, "    cmpq %%rax, %%rcx\n");
-                fprintf(out, "    movq $0, %%rax\n");
+                fprintf(out, "    cmpl %%eax, %%ecx\n");
+                fprintf(out, "    movl $0, %%eax\n");
                 fprintf(out, "    setne %%al\n");
                 break;
             case BIN_LT:
@@ -110,8 +110,8 @@ static void codegen_expression(Expression *expr, FILE *out) {
                 fprintf(out, "    push %%rax\n");
                 codegen_expression(expr->rterm, out);
                 fprintf(out, "    pop %%rcx\n");
-                fprintf(out, "    cmpq %%rax, %%rcx\n");
-                fprintf(out, "    movq $0, %%rax\n");
+                fprintf(out, "    cmpl %%eax, %%ecx\n");
+                fprintf(out, "    movl $0, %%eax\n");
                 fprintf(out, "    setl %%al\n");
                 break;
             case BIN_LTE:
@@ -119,8 +119,8 @@ static void codegen_expression(Expression *expr, FILE *out) {
                 fprintf(out, "    push %%rax\n");
                 codegen_expression(expr->rterm, out);
                 fprintf(out, "    pop %%rcx\n");
-                fprintf(out, "    cmpq %%rax, %%rcx\n");
-                fprintf(out, "    movq $0, %%rax\n");
+                fprintf(out, "    cmpl %%eax, %%ecx\n");
+                fprintf(out, "    movl $0, %%eax\n");
                 fprintf(out, "    setle %%al\n");
                 break;
             case BIN_GT:
@@ -128,8 +128,8 @@ static void codegen_expression(Expression *expr, FILE *out) {
                 fprintf(out, "    push %%rax\n");
                 codegen_expression(expr->rterm, out);
                 fprintf(out, "    pop %%rcx\n");
-                fprintf(out, "    cmpq %%rax, %%rcx\n");
-                fprintf(out, "    movq $0, %%rax\n");
+                fprintf(out, "    cmpl %%eax, %%ecx\n");
+                fprintf(out, "    movl $0, %%eax\n");
                 fprintf(out, "    setg %%al\n");
                 break;
             case BIN_GTE:
@@ -137,32 +137,32 @@ static void codegen_expression(Expression *expr, FILE *out) {
                 fprintf(out, "    push %%rax\n");
                 codegen_expression(expr->rterm, out);
                 fprintf(out, "    pop %%rcx\n");
-                fprintf(out, "    cmpq %%rax, %%rcx\n");
-                fprintf(out, "    movq $0, %%rax\n");
+                fprintf(out, "    cmpl %%eax, %%ecx\n");
+                fprintf(out, "    movl $0, %%eax\n");
                 fprintf(out, "    setge %%al\n");
                 break;
             case BIN_AND:
                 codegen_expression(expr->lterm, out);
-                fprintf(out, "    cmpq $0, %%rax\n");
+                fprintf(out, "    cmpl $0, %%eax\n");
                 fprintf(out, "    jne .L_and_%d\n", expr->clause_count);
                 fprintf(out, "    jmp .L_and_end_%d\n", expr->clause_count);
                 fprintf(out, ".L_and_%d:\n", expr->clause_count);
                 codegen_expression(expr->rterm, out);
-                fprintf(out, "    cmpq $0, %%rax\n");
-                fprintf(out, "    movq $0, %%rax\n");
+                fprintf(out, "    cmpl $0, %%eax\n");
+                fprintf(out, "    movl $0, %%eax\n");
                 fprintf(out, "    setne %%al\n");
                 fprintf(out, ".L_and_end_%d:\n", expr->clause_count);
                 break;
             case BIN_OR:
                 codegen_expression(expr->lterm, out);
-                fprintf(out, "    cmpq $0, %%rax\n");
+                fprintf(out, "    cmpl $0, %%eax\n");
                 fprintf(out, "    je .L_or_%d\n", expr->clause_count);
-                fprintf(out, "    movq $1, %%rax\n");
+                fprintf(out, "    movl $1, %%eax\n");
                 fprintf(out, "    jmp .L_or_end_%d\n", expr->clause_count);
                 fprintf(out, ".L_or_%d:\n", expr->clause_count);
                 codegen_expression(expr->rterm, out);
-                fprintf(out, "    cmpq $0, %%rax\n");
-                fprintf(out, "    movq $0, %%rax\n");
+                fprintf(out, "    cmpl $0, %%eax\n");
+                fprintf(out, "    movl $0, %%eax\n");
                 fprintf(out, "    setne %%al\n");
                 fprintf(out, ".L_or_end_%d:\n", expr->clause_count);
                 break;
