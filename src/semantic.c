@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "resolve.h"
+#include "semantic.h"
 #include "symtab.h"
 #include "parser.h"
 
