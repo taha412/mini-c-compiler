@@ -34,7 +34,7 @@ static char *binop_to_text(BINARY_OP symb) {
         case BIN_NEQ:       return "!=";
         case BIN_LT:        return "<";
         case BIN_LTE:       return "<=";
-        case BIN_GT:        return "<";
+        case BIN_GT:        return ">";
         case BIN_GTE:       return ">=";
         case BIN_FAILURE:   return "NOT A BINOP SYMBOL";
         default:            return "UNKNOWN BINOP SYMBOL";
@@ -43,7 +43,7 @@ static char *binop_to_text(BINARY_OP symb) {
 
 void advance(Parser *parser) {
     parser->curr_token = next_token(parser->lexer);
-    print_token(parser->curr_token);
+    // print_token(parser->curr_token);
 }
 
 void expect(Parser *parser, TokenType expected_type) {
@@ -82,6 +82,39 @@ static BINARY_OP token_to_bin(TokenType token_type) {
     }
 }
 
+static Argument *parse_arguments(Parser *parser, int *arg_count) {
+    *arg_count = 0;
+
+    if (parser->curr_token.type == TOK_CPAREN) {
+        return NULL;
+    }
+
+    Argument *head = NULL;
+    Argument *curr = NULL;
+    while (parser->curr_token.type != TOK_END_OF_FILE) {
+        Argument *arg = (Argument *) calloc(1, sizeof(Argument));
+        Expression *expr = parse_expression(parser);
+
+        arg->expr = expr;
+
+        if (head == NULL) {
+            head = curr = arg;
+        } else {
+            curr->next = arg;
+            curr = arg;
+        }
+        (*arg_count)++;
+
+        if (parser->curr_token.type == TOK_COMMA) {
+            advance(parser);
+            continue; // just in case
+        } else {
+            break;
+        }
+    }
+    return head;
+}
+
 static Expression *parse_factor(Parser *parser) {
     UNARY_OP op = token_to_op(parser->curr_token.type);
 
@@ -110,12 +143,19 @@ static Expression *parse_factor(Parser *parser) {
         return expr;
     }
 
-    else if (parser->curr_token.type == TOK_IDENTIFIER) { // variable
+    else if (parser->curr_token.type == TOK_IDENTIFIER) { // variable or function
         Expression *expr = (Expression *) malloc(sizeof(Expression));
-        expr->type = EXPR_VAR;
         strncpy(expr->text, parser->curr_token.text, 63);
         expr->text[63] = '\0'; //safety
         advance(parser);
+        if (parser->curr_token.type == TOK_OPAREN) {
+            expr->type = EXPR_CALL;
+            advance(parser);
+            expr->args = parse_arguments(parser, &(expr->arg_count));
+            expect(parser, TOK_CPAREN);
+        } else {
+            expr->type = EXPR_VAR;
+        }
         return expr;
     }
 
@@ -417,7 +457,7 @@ static Statement *parse_statement(Parser *parser) {
 static Declaration *parse_declaration(Parser *parser) {
     if (parser->curr_token.type == TOK_KEYW_INT) { // safety
         Declaration *d = (Declaration *) calloc(1, sizeof(Declaration));
-        d->type = DECL_INT;
+        d->data_type = DATA_INT;
         advance(parser);
         if (parser->curr_token.type != TOK_IDENTIFIER) {
             printf("Error: Invalid variable name.");
@@ -460,21 +500,71 @@ static Statement *parse_statement_block(Parser *parser) {
     Statement *head = (Statement *) calloc(1, sizeof(Statement));
     head->type = STMT_BLOCK;
     BlockItem *curr = NULL;
-    BlockItem *new = NULL;
+    BlockItem *new_block = NULL;
     while (parser->curr_token.type != TOK_CBRACE && parser->curr_token.type != TOK_END_OF_FILE) {
-        new = parse_block_item(parser);
+        new_block = parse_block_item(parser);
         if (curr == NULL) {
-            head->block_head = new;
+            head->block_head = new_block;
         } else {
-            curr->next = new;
+            curr->next = new_block;
         }
-        curr = new;
+        curr = new_block;
     }
 
     expect(parser, TOK_CBRACE);
 
     return head;
 }
+
+static Parameter *parse_parameters(Parser *parser, int *para_count) {
+    *para_count = 0;
+
+    if (parser->curr_token.type == TOK_VOID) {
+        advance(parser);
+        return NULL;
+    }
+
+    if (parser->curr_token.type == TOK_CPAREN) {
+        return NULL;
+    }
+
+    Parameter *head = NULL;
+    Parameter *curr = NULL;
+    while (parser->curr_token.type != TOK_END_OF_FILE) {
+        if (parser->curr_token.type == TOK_KEYW_INT) { // change later to accept multiple types
+            advance(parser);
+            if (parser->curr_token.type != TOK_IDENTIFIER) {
+                printf("Error: Invalid parameter name in function declarationn\n");
+                exit(1);
+            }
+
+            Parameter *para = (Parameter *) calloc(1, sizeof(Parameter));
+            para->data_type = DATA_INT; // change later to accept multiple types
+            strncpy(para->name, parser->curr_token.text, 63);
+            para->name[63] = '\0'; // for safety
+
+            if (head == NULL) {
+                head = curr = para;
+            } else {
+                curr->next = para;
+                curr = para;
+            }
+            (*para_count)++;
+            advance(parser);
+
+            if (parser->curr_token.type == TOK_COMMA) {
+                advance(parser);
+                continue; // just in case
+            } else {
+                break;
+            }
+        } else {
+            printf("Error: Invalid function parameter\n");
+            exit(1);
+        }
+    }
+    return head;
+} 
 
 static Function *parse_function(Parser *parser) {
     Function *func = (Function *) calloc(1, sizeof(Function));
@@ -486,9 +576,15 @@ static Function *parse_function(Parser *parser) {
         advance(parser);
 
         expect(parser, TOK_OPAREN);
+        func->para = parse_parameters(parser, &(func->para_count));
         expect(parser, TOK_CPAREN);
 
-        func->stmt = parse_statement_block(parser);
+        if (parser->curr_token.type == TOK_SEMI) {
+            func->stmt = NULL;
+            advance(parser);
+        } else {
+            func->stmt = parse_statement_block(parser);
+        }
 
         return func;
     }
@@ -499,12 +595,30 @@ static Function *parse_function(Parser *parser) {
     }
 }
 
-Program *parse_program(Parser *parser) {
-    Program *prog = (Program *) malloc(sizeof(Program));
+static TopLevelItem *parse_top_lvl_item(Parser *parser) { // to allow implementation of gloval variables in the future
+    TopLevelItem *top = (TopLevelItem *) calloc(1, sizeof(TopLevelItem));
 
-    prog->fnctn = parse_function(parser);
+    top->type = TOPLVL_FNCTN;
+    top->fnctn = parse_function(parser);
+
+    return top;
+}
+
+Program *parse_program(Parser *parser) {
+    Program *prog = (Program *) calloc(1, sizeof(Program));
+    TopLevelItem *curr = NULL;
+
+    while (parser->curr_token.type != TOK_END_OF_FILE) {
+        TopLevelItem *new_item = parse_top_lvl_item(parser);
+        if (prog->top == NULL) {
+            prog->top = curr = new_item;
+        } else {
+            curr->next = new_item;
+            curr = new_item;
+        }
+    }
     
-    expect(parser, TOK_END_OF_FILE);
+    expect(parser, TOK_END_OF_FILE); // just in case
 
     return prog;
 }
@@ -562,6 +676,16 @@ void print_expression(Expression *expr, int level) {
         printf(" >");
     }
 
+    else if (expr->type == EXPR_CALL) {
+        printf("%s< ", expr->text);
+        for (Argument *a = expr->args; a != NULL; a = a->next) {
+            print_expression(a->expr, 0);
+            if (a->next != NULL)
+                printf(" , ");
+        }
+        printf(" >");
+    }
+
     else {
         printf("Unknown Expression.\n");
     }
@@ -569,7 +693,7 @@ void print_expression(Expression *expr, int level) {
 
 void print_declaration(Declaration *decl, int level) {
     print_indent(level);
-    if (decl->type == DECL_INT) {
+    if (decl->data_type == DATA_INT) {
         printf("int %s", decl->name);
         if (decl->expr != NULL) {
             printf(" = ");
@@ -617,13 +741,11 @@ void print_statement(Statement *stmt, int level) {
             printf("IF ( ");
             print_expression(stmt->expr, 0);
             printf(" )\n");
-            print_statement(stmt->if_stmt, level);
-            printf("\n");
+            print_statement(stmt->if_stmt, level+1);
             if (stmt->else_stmt != NULL) {
                 print_indent(level);
                 printf("ELSE\n");
                 print_statement(stmt->else_stmt, level+1);
-                printf("\n");
             }
             break;
         case STMT_FOR:
@@ -657,6 +779,14 @@ void print_statement(Statement *stmt, int level) {
             print_expression(stmt->expr, 0);
             printf(" )");
             break;
+        case STMT_BREAK:
+            printf("BREAK");
+            break;
+        case STMT_CONT:
+            printf("CONTINUE");
+            break;
+        case STMT_NULL:
+            break;
         default:
             printf("Unknown Statement.\n");
     }
@@ -665,12 +795,28 @@ void print_statement(Statement *stmt, int level) {
 void print_function(Function *func, int level) {
     print_indent(level);
     printf("Function: %s\n", func->name);
-    print_statement(func->stmt, level+1);
+    if (func->stmt != NULL)
+        print_statement(func->stmt, level+1);
+    else {
+        print_indent(level+1);
+        printf("DECLARED ");
+    }
+    printf("\n");
+}
+
+void print_top_level_item(TopLevelItem *tli, int level) {
+    if (tli->type == TOPLVL_FNCTN) {
+        print_function(tli->fnctn, level);
+    }
 }
 
 void print_program(Program *prog, int level) {
     print_indent(level);
     printf("Program\n");
-    print_function(prog->fnctn, level+1);
+    TopLevelItem *curr = prog->top;
+    while (curr != NULL) {
+        print_top_level_item(curr, level+1);
+        curr = curr->next;
+    }
     printf("\n");
 }

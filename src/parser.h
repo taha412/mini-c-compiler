@@ -3,6 +3,8 @@
 
 #include "lexer.h"
 
+typedef struct Expression Expression;
+
 typedef enum BLCKITEM_TYPE {
     BLCKITEM_STMT,
     BLCKITEM_DECL
@@ -21,9 +23,10 @@ typedef enum STMT_TYPE {
     STMT_NULL
 } STMT_TYPE;
 
-typedef enum DECL_TYPE {
-    DECL_INT
-} DECL_TYPE;
+typedef enum DataType {
+    DATA_INT,
+    DATA_VOID
+} DataType;
 
 typedef enum EXPR_TYPE {
     EXPR_BINOP,
@@ -31,8 +34,13 @@ typedef enum EXPR_TYPE {
     EXPR_CONST,
     EXPR_ASS,
     EXPR_VAR,
-    EXPR_TERNARY
+    EXPR_TERNARY,
+    EXPR_CALL
 } EXPR_TYPE;
+
+typedef enum TOP_LVL_TYPE {
+    TOPLVL_FNCTN
+} TOP_LVL_TYPE;
 
 typedef enum UNARY_OP {
     OP_NEG,
@@ -63,15 +71,24 @@ typedef struct Parser {
     Token curr_token;
 } Parser;
 
+typedef struct Argument {
+    Expression *expr;
+    int resolved_offset;
+    struct Argument *next;
+} Argument;
+
 typedef struct Expression { // TODO: Add a union to reduce memory usage
     EXPR_TYPE type;
+    DataType data_type;
     union {
         struct Expression *lterm;
         struct Expression *term_cond;
+        Argument *args;
     };
     union {
         struct Expression *rterm;
         struct Expression *term_one;
+        int arg_count;
     };
     struct Expression *term_two;
     BINARY_OP bin_op;
@@ -102,7 +119,7 @@ typedef struct Statement {
 } Statement;
 
 typedef struct Declaration {
-    DECL_TYPE type;
+    DataType data_type;
     char name[64];
     Expression *expr;
     int resolved_offset;
@@ -118,14 +135,30 @@ typedef struct BlockItem {
     struct BlockItem *next;
 } BlockItem;
 
+typedef struct Parameter {
+    DataType data_type;
+    char name[64];
+    int resolved_offset;
+    struct Parameter *next;
+} Parameter;
+
 typedef struct Function {
     char name[64];
+    DataType return_type;
     Statement *stmt;
     int frame_size;
+    int para_count;
+    Parameter *para;
 } Function;
 
-typedef struct Program {
+typedef struct TopLevelItem {
+    TOP_LVL_TYPE type;
     Function *fnctn;
+    struct TopLevelItem *next;
+} TopLevelItem;
+
+typedef struct Program {
+    TopLevelItem *top;
 } Program;
 
 Program *parse_program(Parser *parser);
