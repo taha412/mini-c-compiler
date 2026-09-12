@@ -327,7 +327,12 @@ static void resolve_declaration(Declaration *decl, SymbolTable *symtab, GlobalEn
 
         if (decl->expr != NULL) {
             resolve_expression(decl->expr, symtab, ge);
+            if (decl->expr->data_type != decl->data_type) {
+                printf("Error: type mismatch in declaration of variable '%s'\n", decl->name);
+                exit(1);
+            }
         }
+
         int offset = symtab_add(symtab, decl->name, decl->data_type);
         decl->resolved_offset = offset;
         update_largest_offset(offset);
