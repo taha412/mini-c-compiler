@@ -23,7 +23,11 @@ static void update_largest_offset(int offset) {
 }
 
 static void resolve_expression(Expression *expr, SymbolTable *symtab, GlobalEnv *ge) {    
-    if (expr->type == EXPR_UNOP) {
+    if (expr->type == EXPR_CONST) {
+        expr->data_type = DATA_INT;
+    }
+
+    else if (expr->type == EXPR_UNOP) {
         switch (expr->un_op) {
             case OP_NEG:
                 resolve_expression(expr->lterm, symtab, ge);
@@ -156,8 +160,13 @@ static void resolve_expression(Expression *expr, SymbolTable *symtab, GlobalEnv 
             printf("Error: Variable '%s' is not defined in this scope\n", expr->lterm->text);
             exit(1);
         }
-        expr->lterm->resolved_offset = sym->offset;
         resolve_expression(expr->rterm, symtab, ge);
+        if (sym->data_type != expr->rterm->data_type) {
+            printf("Error: Type mismatch in assigning varuable '%s'\n", expr->lterm->text);
+            exit(1);
+        }
+        expr->data_type = sym->data_type;
+        expr->lterm->resolved_offset = sym->offset;
     }
 
     else if (expr->type == EXPR_VAR) {
@@ -175,6 +184,15 @@ static void resolve_expression(Expression *expr, SymbolTable *symtab, GlobalEnv 
         resolve_expression(expr->term_cond, symtab, ge);
         resolve_expression(expr->term_one, symtab, ge);
         resolve_expression(expr->term_two, symtab, ge);
+        if (expr->term_cond->data_type != DATA_INT) {
+            printf("Error: Invalid expression in ternary condition\n");
+            exit(1);
+        }
+        if (expr->term_one->data_type != expr->term_two->data_type) {
+            printf("Error: Ternary expression has mismatched branch types\n");
+            exit(1);
+        }
+        expr->data_type = expr->term_one->data_type;
     }
 
     else if (expr->type == EXPR_CALL) {
